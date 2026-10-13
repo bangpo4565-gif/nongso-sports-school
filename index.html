@@ -1,0 +1,1287 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d1430">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="농소스포츠">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>농소스포츠스쿨 체험판</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+/* Layout: phone-width student app over a court-navy scoreboard ground; teacher view is sidebar + wide console. Single deliberate dark look. */
+:root{
+  --ink:#0d1430; --panel:#151e40; --panel2:#1c2752; --line:#2b3768;
+  --fg:#eef1ff; --muted:#9aa3c8; --dim:#6b75a0;
+  --court:#ff7a2f; --data:#45d2c6; --gold:#ffd166; --silver:#cfd8ea; --bronze:#e39a6a; --good:#4ade80; --warn:#fbbf24; --bad:#f87171;
+  --display:"Saira Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--ink);color:var(--fg);font:15px/1.55 var(--body);margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--data);outline-offset:2px}
+.num{font-family:var(--display);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.eyebrow{font:600 12px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+h1,h2,h3{text-wrap:balance;margin:0}
+.demo-bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;background:var(--court);color:#1b0d03;font-size:12.5px;font-weight:700;text-align:center;padding:5px 16px}
+.demo-bar span{font-weight:500}
+
+/* ---------- splash ---------- */
+.splash{position:fixed;inset:0;z-index:60;background:var(--ink) center/cover no-repeat;display:flex;flex-direction:column;justify-content:flex-end;padding:32px 24px calc(40px + env(safe-area-inset-bottom,0px));cursor:pointer}
+.splash::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,20,48,.15) 0%,rgba(13,20,48,.55) 50%,rgba(13,20,48,.96) 100%)}
+.splash>*{position:relative}
+.sp-tag{font:700 13px/1 var(--display);letter-spacing:.2em;color:var(--court)}
+.sp-name{font:800 clamp(44px,12vw,84px)/.92 var(--display);letter-spacing:.01em;margin:10px 0 6px}
+.sp-ko{font-size:17px;font-weight:700}
+.sp-loop{display:flex;gap:10px;margin-top:22px;font:700 14px/1 var(--display);letter-spacing:.16em;color:var(--muted)}
+.sp-loop b{color:var(--fg)}
+.sp-bar{height:3px;background:rgba(255,255,255,.18);margin-top:22px;border-radius:2px;overflow:hidden;max-width:420px}
+.sp-bar i{display:block;height:100%;width:0;background:var(--court);animation:load 2.2s linear forwards}
+@keyframes load{to{width:100%}}
+
+/* ---------- student shell ---------- */
+.phone{max-width:480px;margin:0 auto;min-height:100%;padding:0 16px calc(96px + env(safe-area-inset-bottom,0px));}
+.topline{display:flex;justify-content:space-between;align-items:center;padding-block:16px 8px}
+.brand{font:800 20px/1 var(--display);letter-spacing:.04em}
+.brand em{font-style:normal;color:var(--court)}
+.who{font-size:13px;color:var(--muted)}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(13,20,48,.94);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px))}
+.tabs nav{max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+.tabs button{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;font:700 11px/1 var(--display);letter-spacing:.08em;color:var(--dim)}
+.tabs button svg{width:22px;height:22px}
+.tabs button.on{color:var(--court)}
+.tabs .check-dot{position:relative}
+.tabs .live::after{content:"";position:absolute;top:-1px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px var(--ink)}
+
+.stack{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.row{display:flex;gap:12px;align-items:center}
+.between{justify-content:space-between}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:6px;font:600 11.5px/1 var(--display);letter-spacing:.1em;padding:5px 8px;border-radius:6px;background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
+.chip.ph{color:var(--warn);border-color:rgba(251,191,36,.35)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:12px;padding:14px 18px;font-weight:700;background:var(--court);color:#1b0d03;width:100%}
+.btn.ghost{background:var(--panel2);color:var(--fg);border:1px solid var(--line)}
+.btn.teal{background:var(--data);color:#04211f}
+.btn.sm{padding:9px 12px;font-size:13px;width:auto;border-radius:9px}
+.back{background:none;border:0;padding:4px 0;color:var(--muted);font-weight:700;font-size:14px;display:inline-flex;gap:6px;align-items:center}
+.pagehead{display:flex;flex-direction:column;gap:6px;padding-block:6px 4px}
+.pagehead h2{font:800 30px/1 var(--display);letter-spacing:.02em}
+
+/* hero level */
+.hero{position:relative;overflow:hidden;border-radius:18px;padding:18px;background:linear-gradient(135deg,#1d2a5e 0%,#151e40 70%);border:1px solid var(--line)}
+.hero::after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;border:2px solid rgba(255,122,47,.25);box-shadow:0 0 0 26px rgba(255,122,47,.06)}
+.lv{display:flex;align-items:flex-end;gap:14px;position:relative;z-index:1}
+.lv-num{font:800 64px/.8 var(--display)}
+.lv-num small{font-size:18px;color:var(--muted);margin-right:4px}
+.tier{font:800 13px/1 var(--display);letter-spacing:.16em;padding:6px 9px;border-radius:6px;background:rgba(197,208,230,.14);color:#d6deef;border:1px solid rgba(214,222,239,.3)}
+.bar{height:10px;border-radius:6px;background:var(--panel2);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--court),#ffb27f);transition:width .8s ease}
+.bar.teal i{background:linear-gradient(90deg,#1fa99e,var(--data))}
+.stat3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;position:relative;z-index:1}
+.stat3 div{background:rgba(13,20,48,.45);border-radius:10px;padding:10px}
+.stat3 b{display:block;font:700 24px/1.1 var(--display)}
+.stat3 span{font-size:12px;color:var(--muted)}
+
+.sess{display:flex;align-items:center;gap:12px;padding:14px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);width:100%;text-align:left}
+.sess .tm{font:800 22px/1 var(--display);width:58px;text-align:center;color:var(--data)}
+.sess .tm small{display:block;font-size:11px;color:var(--muted);letter-spacing:.1em;margin-top:4px}
+.sess .meta{flex:1;min-width:0}
+.sess .meta b{display:block}
+.open{font:700 11px/1 var(--display);letter-spacing:.12em;color:var(--good)}
+
+/* check */
+.scanner{position:relative;aspect-ratio:1/1;max-width:100%;border-radius:18px;background:repeating-linear-gradient(45deg,#121a3a 0 10px,#141d40 10px 20px);border:1px solid var(--line);display:grid;place-items:center;overflow:hidden}
+.scanner .frame{width:62%;aspect-ratio:1/1;position:relative}
+.scanner .frame i{position:absolute;width:34px;height:34px;border:4px solid var(--court)}
+.scanner .frame i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0;border-radius:10px 0 0 0}
+.scanner .frame i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0;border-radius:0 10px 0 0}
+.scanner .frame i:nth-child(3){left:0;bottom:0;border-right:0;border-top:0;border-radius:0 0 0 10px}
+.scanner .frame i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0;border-radius:0 0 10px 0}
+.scanner .laser{position:absolute;left:19%;right:19%;height:2px;background:var(--court);box-shadow:0 0 12px var(--court);animation:laser 2.4s ease-in-out infinite}
+@keyframes laser{0%,100%{top:22%}50%{top:76%}}
+.scanner .cap{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:13px;color:var(--muted)}
+.ring{position:relative;width:220px;height:220px;margin:6px auto}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .in b{font:800 54px/1 var(--display)}
+.state{display:inline-flex;align-items:center;gap:6px;font:800 12px/1 var(--display);letter-spacing:.14em;padding:6px 9px;border-radius:6px}
+.st-WAITING{background:rgba(154,163,200,.14);color:var(--muted)}
+.st-ACTIVE{background:rgba(69,210,198,.15);color:var(--data)}
+.st-COMPLETED{background:rgba(74,222,128,.15);color:var(--good)}
+.st-FAILED{background:rgba(248,113,113,.15);color:var(--bad)}
+.st-MANUAL{background:rgba(251,191,36,.15);color:var(--warn)}
+.msg{border-radius:12px;padding:12px 14px;font-weight:600;font-size:14px}
+.msg.bad{background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.4);color:#ffc9c9}
+.msg.ok{background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.4);color:#c8f7d8}
+.msg.info{background:rgba(69,210,198,.1);border:1px solid rgba(69,210,198,.35);color:#c9f4f0}
+.cheat{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cheat button{background:var(--panel2);border:1px dashed var(--line);border-radius:10px;padding:10px;font-size:13px;text-align:left;color:var(--muted)}
+.xpburst{text-align:center;padding-block:14px}
+.xpburst b{display:block;font:800 72px/1 var(--display);color:var(--court);animation:pop .6s ease}
+@keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+
+/* sports id */
+.idcard{position:relative;border-radius:18px;padding:18px;overflow:hidden;background:#101836;border:1px solid var(--line)}
+.idcard::before{content:"";position:absolute;inset:0;background:
+  linear-gradient(90deg,transparent 49.6%,rgba(255,255,255,.06) 49.6% 50.4%,transparent 50.4%),
+  radial-gradient(circle at 50% 50%,transparent 62px,rgba(255,255,255,.06) 62px 64px,transparent 64px),
+  linear-gradient(135deg,rgba(255,122,47,.18),transparent 55%)}
+.idcard>*{position:relative}
+.idno{font:700 14px/1 var(--display);letter-spacing:.2em;color:var(--court)}
+.idname{font:900 26px/1.1 var(--body);margin-top:10px}
+.idgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px}
+.idgrid div{border-top:1px solid var(--line);padding-top:8px}
+.idgrid b{display:block;font:800 22px/1 var(--display)}
+.idgrid span{font-size:11px;color:var(--muted)}
+.badges{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.badge{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--line)}
+.badge i{width:10px;height:10px;border-radius:2px;transform:rotate(45deg);background:var(--court)}
+
+/* ranking */
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--panel2);border-radius:10px;padding:4px;border:1px solid var(--line)}
+.seg button{border:0;background:none;padding:9px;border-radius:7px;font-weight:700;color:var(--muted)}
+.seg button.on{background:var(--panel);color:var(--fg);box-shadow:0 0 0 1px var(--line)}
+.rk{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;padding:12px;border-radius:12px;background:var(--panel);border:1px solid var(--line)}
+.rk.me{border-color:var(--court);background:linear-gradient(90deg,rgba(255,122,47,.12),var(--panel) 60%)}
+.rk .pos{font:800 26px/1 var(--display);text-align:center}
+.rk .pos.p1{color:#ffd166}.rk .pos.p2{color:#d9e1f2}.rk .pos.p3{color:#e3a072}
+.rk .sc{font:800 26px/1 var(--display);text-align:right}
+.rk .sc small{display:block;font-size:10px;color:var(--muted);letter-spacing:.12em}
+.mini{display:flex;gap:10px;margin-top:6px;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
+.mini b{color:var(--fg);font-family:var(--display);font-size:13px}
+
+/* more */
+.menu{display:flex;flex-direction:column;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.menu button{display:flex;align-items:center;gap:12px;background:var(--panel);border:0;border-bottom:1px solid var(--line);padding:16px;text-align:left}
+.menu button:last-child{border-bottom:0}
+.menu .k{font:800 15px/1 var(--display);letter-spacing:.1em;width:96px}
+.menu .d{flex:1;color:var(--muted);font-size:13px}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{font:600 11.5px/1 var(--display);letter-spacing:.12em;color:var(--muted);text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl td.r,.tbl th.r{text-align:right}
+.scroll{overflow-x:auto}
+.grow{color:var(--good);font-weight:700;font-size:12.5px}
+.grow.down{color:var(--bad)}
+.trophies{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.trophy{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 10px;text-align:center}
+.trophy svg{width:40px;height:40px}
+.trophy b{display:block;font-size:13px;margin-top:6px}
+.trophy span{font-size:11px;color:var(--muted)}
+.trophy.lock{opacity:.4}
+
+/* login */
+.login{max-width:440px;margin:0 auto;padding:32px 16px 40px;display:flex;flex-direction:column;gap:18px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:700;color:var(--muted)}
+.field input,.field select{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 14px;color:var(--fg);font:inherit;width:100%}
+.loginphoto{height:180px;border-radius:18px;background:center/cover no-repeat;position:relative;overflow:hidden}
+.loginphoto::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 30%,rgba(13,20,48,.9))}
+.loginphoto div{position:absolute;left:16px;bottom:14px;z-index:1;font:800 30px/1 var(--display)}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:70;background:var(--fg);color:var(--ink);font-weight:700;font-size:14px;padding:10px 16px;border-radius:999px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:calc(100% - 32px);text-align:center}
+#toast.on{opacity:1}
+
+/* ---------- admin ---------- */
+.admin{display:grid;grid-template-columns:232px 1fr;min-height:100%}
+.side{background:#0a1028;border-right:1px solid var(--line);padding:20px 12px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh;overflow:auto}
+.side .brand{padding:0 10px 14px}
+.side .grp{font:600 11px/1 var(--display);letter-spacing:.16em;color:var(--dim);padding:14px 10px 6px}
+.side button{display:flex;justify-content:space-between;align-items:center;background:none;border:0;border-radius:8px;padding:10px;text-align:left;font-weight:500;color:var(--muted);font-size:14px}
+.side button.on{background:var(--panel2);color:var(--fg)}
+.side button small{font:600 10px/1 var(--display);letter-spacing:.1em;color:var(--warn)}
+.main{padding:24px 28px 48px;min-width:0}
+.ahead{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.ahead h1{font:800 34px/1 var(--display);letter-spacing:.02em}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.kpi b{display:block;font:800 34px/1.05 var(--display)}
+.kpi span{font-size:12.5px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;margin-top:14px}
+.hbar{display:grid;grid-template-columns:64px 1fr 48px;gap:10px;align-items:center;font-size:13px;padding:6px 0}
+.hbar .bar{height:12px}
+.livehead{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.count{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px}
+.count b{font:800 22px/1 var(--display)}
+.alert{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.3);font-size:13px;margin-bottom:8px}
+.alert b{color:#ffc9c9}
+.qrstage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,300px);gap:18px}
+.qrbig{border-radius:20px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:16px;border:3px solid}
+.qrbig.in{border-color:var(--good);background:rgba(74,222,128,.06)}
+.qrbig.out{border-color:var(--court);background:rgba(255,122,47,.06)}
+.qrbig .mode{font:800 44px/1 var(--display);letter-spacing:.06em}
+.qrbox{background:#fff;padding:16px;border-radius:14px;width:min(320px,100%);aspect-ratio:1/1;display:grid;place-items:center}
+.qrbox canvas,.qrbox img{width:100%!important;height:auto!important;image-rendering:pixelated}
+.qrtimer{width:min(320px,100%)}
+.toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.toggle button{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:12px;font-weight:700}
+.toggle button.on.in{background:var(--good);color:#06240f;border-color:var(--good)}
+.toggle button.on.out{background:var(--court);color:#1b0d03;border-color:var(--court)}
+.popsgrid input{width:76px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 8px;color:var(--fg);font:600 14px var(--display);text-align:right}
+.ph-note{display:inline-flex;gap:8px;align-items:center;font-size:12.5px;color:var(--warn)}
+
+/* podium */
+.podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:14px;align-items:end}
+.prize{position:relative;border-radius:18px;padding:16px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;min-width:0}
+.prize.p1{order:2;border-color:var(--gold);background:linear-gradient(180deg,rgba(255,209,102,.16),var(--panel) 70%);padding-block:22px}
+.prize.p2{order:1;border-color:rgba(207,216,234,.6)}
+.prize.p3{order:3;border-color:rgba(227,154,106,.6)}
+.rankno{font:800 15px/1 var(--display);letter-spacing:.18em}
+.p1 .rankno{color:var(--gold)}.p2 .rankno{color:var(--silver)}.p3 .rankno{color:var(--bronze)}
+.prize svg.art{width:100%;max-width:190px;height:auto}
+.prize .what{font:900 22px/1.15 var(--body)}
+.p1 .what{font-size:28px}
+.holder{display:flex;align-items:baseline;gap:8px;justify-content:center;flex-wrap:wrap}
+.holder b{font:800 30px/1 var(--display)}
+.p1 .holder b{font-size:40px}
+.holder span{color:var(--muted);font-size:13px}
+
+/* race */
+.track{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px 16px 10px;overflow-x:auto}
+.track-inner{min-width:560px}
+.scale{display:grid;grid-template-columns:92px 1fr 120px;gap:12px;font:600 12px/1 var(--display);letter-spacing:.1em;color:var(--dim);padding-bottom:8px}
+.scale .ticks{position:relative;height:14px}
+.scale .ticks span{position:absolute;transform:translateX(-50%)}
+.lane{display:grid;grid-template-columns:92px 1fr 120px;gap:12px;align-items:center;padding-block:7px;border-top:1px solid var(--line)}
+.lane .cls{font:800 22px/1 var(--display)}
+.lane .cls small{display:block;font:500 12px/1.3 var(--body);color:var(--muted);margin-top:3px}
+.road{position:relative;height:34px;border-radius:17px;background:
+  repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),rgba(255,255,255,.07) calc(10% - 1px) 10%),var(--ink);border:1px solid var(--line)}
+.road .fill{position:absolute;left:0;top:0;bottom:0;border-radius:17px;background:linear-gradient(90deg,rgba(69,210,198,.15),rgba(69,210,198,.45));transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+.road .runner{position:absolute;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font:800 16px/1 var(--display);background:var(--data);color:#04211f;box-shadow:0 0 0 3px var(--ink);transition:left 1.2s cubic-bezier(.2,.8,.2,1)}
+.road .flag{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:22px;height:22px;opacity:.7}
+.lane.r1 .runner{background:var(--gold);color:#2b1d00}
+.lane.r2 .runner{background:var(--silver);color:#1a2235}
+.lane.r3 .runner{background:var(--bronze);color:#2b1406}
+.lane.r1 .fill{background:linear-gradient(90deg,rgba(255,209,102,.12),rgba(255,209,102,.45))}
+.lane.r2 .fill{background:linear-gradient(90deg,rgba(207,216,234,.1),rgba(207,216,234,.38))}
+.lane.r3 .fill{background:linear-gradient(90deg,rgba(227,154,106,.1),rgba(227,154,106,.4))}
+.lane .res{text-align:right}
+.lane .res b{font:800 26px/1 var(--display)}
+.lane .res small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.tag{display:inline-block;font:800 11px/1 var(--display);letter-spacing:.12em;padding:4px 6px;border-radius:5px;margin-left:6px;vertical-align:middle}
+.r1 .tag{background:var(--gold);color:#2b1d00}.r2 .tag{background:var(--silver);color:#1a2235}.r3 .tag{background:var(--bronze);color:#2b1406}
+
+.chase{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.chase div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.chase b{font:800 26px/1 var(--display);color:var(--court)}
+.compact .podium{grid-template-columns:1fr;}
+.compact .prize.p1,.compact .prize.p2,.compact .prize.p3{order:initial}
+.compact .prize{flex-direction:row;text-align:left;gap:12px}
+.compact .prize svg.art{width:96px;flex:none}
+.compact .prize .txt{display:flex;flex-direction:column;gap:4px;min-width:0}
+.compact .holder{justify-content:flex-start}
+.compact .track{padding:12px 12px 6px}
+.compact .track-inner{min-width:0}
+.compact .scale,.compact .lane{grid-template-columns:44px 1fr 58px;gap:8px}
+.compact .scale .ticks span:nth-child(2n){display:none}
+.compact .lane .cls{font-size:18px}
+.compact .lane .res b{font-size:20px}
+.compact .lane .res small,.compact .tag{display:none}
+.compact .road .runner{width:32px;height:32px;font-size:14px}
+.compact .prize .what{font-size:18px}.compact .p1 .what{font-size:20px}
+.compact .holder b,.compact .p1 .holder b{font-size:28px}
+.gtabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px}
+.gtabs button{border:0;background:none;border-radius:8px;padding:10px 18px;font:800 18px/1 var(--display);letter-spacing:.06em;color:var(--muted)}
+.gtabs button.on{background:var(--court);color:#1b0d03}
+.lane.mine{background:rgba(255,122,47,.08);border-radius:10px}
+.racewrap{display:flex;flex-direction:column;gap:14px}
+.papstbl td.hit{background:rgba(255,122,47,.18);color:var(--fg);font-weight:800;border-radius:6px;box-shadow:inset 0 0 0 1.5px var(--court)}
+.papstbl td,.papstbl th{white-space:nowrap}
+@media (max-width:640px){
+.racewrap .podium{grid-template-columns:1fr;}
+.racewrap .prize.p1,.racewrap .prize.p2,.racewrap .prize.p3{order:initial}
+.racewrap .prize{flex-direction:row;text-align:left;gap:12px}
+.racewrap .prize svg.art{width:96px;flex:none}
+.racewrap .prize .txt{display:flex;flex-direction:column;gap:4px;min-width:0}
+.racewrap .holder{justify-content:flex-start}
+.racewrap .track{padding:12px 12px 6px}
+.racewrap .track-inner{min-width:0}
+.racewrap .scale,.racewrap .lane{grid-template-columns:44px 1fr 58px;gap:8px}
+.racewrap .scale .ticks span:nth-child(2n){display:none}
+.racewrap .lane .cls{font-size:18px}
+.racewrap .lane .res b{font-size:20px}
+.racewrap .lane .res small,.racewrap .tag{display:none}
+.racewrap .road .runner{width:32px;height:32px;font-size:14px}
+.racewrap .prize .what{font-size:18px}.racewrap .p1 .what{font-size:20px}
+.racewrap .holder b,.racewrap .p1 .holder b{font-size:28px}
+}
+.phone.wide{max-width:1180px}
+
+
+@media (max-width:860px){
+  .admin{grid-template-columns:1fr}
+  .side{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;height:auto;flex-direction:row;overflow-x:auto;padding:10px 12px;gap:4px;border-right:0;border-bottom:1px solid var(--line)}
+  .side .brand,.side .grp{display:none}
+  .side button{white-space:nowrap;flex:none}
+  .main{padding:18px 16px 40px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid2,.qrstage{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- mission ---------- */
+.stage{position:relative;aspect-ratio:3/4;max-height:62vh;width:100%;background:#05081a;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.stage .mirror{transform:scaleX(-1)}
+.stage [hidden]{display:none!important}
+.stage .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--muted);font-size:14px}
+.stage .hud{position:absolute;top:12px;left:14px;display:flex;align-items:baseline;gap:6px;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+.stage .hud b{font:800 64px/1 var(--display);color:var(--court)}
+.stage .hud small{font:700 18px/1 var(--display);color:var(--fg)}
+.stage .cue{position:absolute;left:12px;right:12px;bottom:12px;border-radius:10px;padding:10px 12px;font-weight:700;font-size:14px;text-align:center;background:rgba(13,20,48,.82)}
+.stage .cue.good{color:var(--good)} .stage .cue.fix{color:var(--court)}
+.mform{display:grid;grid-template-columns:1.7fr .9fr 1.3fr 1.3fr .7fr 1.1fr;gap:10px;margin-top:12px}
+@media(max-width:900px){.mform{grid-template-columns:1fr 1fr}}
+.bell{display:inline-flex;align-items:center;gap:2px;position:relative;vertical-align:middle}
+.bell svg{width:24px;height:24px;transform-origin:50% 8%;animation:ring 2.4s ease-in-out infinite;filter:drop-shadow(0 0 6px rgba(255,209,102,.55))}
+.bell b{position:absolute;top:-6px;right:-9px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;line-height:17px;text-align:center;box-shadow:0 0 0 2px var(--ink)}
+@keyframes ring{0%,55%,100%{transform:rotate(0)}5%{transform:rotate(18deg)}12%{transform:rotate(-16deg)}19%{transform:rotate(12deg)}26%{transform:rotate(-8deg)}33%{transform:rotate(4deg)}40%{transform:rotate(0)}}
+.tabs .tbadge{position:absolute;top:-5px;right:-11px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--bad);color:#fff;font:700 10px/16px var(--display);font-style:normal;text-align:center;box-shadow:0 0 0 2px var(--ink)}
+@media(prefers-reduced-motion:reduce){.bell svg{animation:none}}
+.btn:disabled{opacity:.45;cursor:default}
+</style>
+</head><body>
+
+<div class="demo-bar">체험판 <span>· 화면과 흐름만 보는 연습용이에요. 이름과 기록은 모두 예시예요.</span></div>
+<div id="app"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+const PHOTO = "img/splash.jpg";
+const $app = document.getElementById("app");
+const ADMIN = location.hash === "#admin";
+
+/* ---------- demo data (all fictional) ---------- */
+const PROGRAMS = [
+  {id:"test", name:"체험 테스트", min:20, xp:15, geo:false, color:"var(--data)"},
+  {id:"morning", name:"아침 운동", min:600, xp:30, geo:true, color:"var(--court)"},
+  {id:"lunch", name:"점심 운동", min:300, xp:20, geo:true, color:"var(--warn)"},
+  {id:"special", name:"특별 프로그램", min:180, xp:15, geo:false, color:"var(--good)"}
+];
+const NAMES = ["강도윤","고서연","권민재","김서준","김지아","남하린","노윤우","문채원","박시우","배수아","서예준","김하준","손유나","송지호","안다은","오건우","유하은","윤재민","이서아","임도현","장나윤","정우진","조아린","최승현","한소율"];
+const ME_IDX = 11;
+const now = () => Date.now();
+const S = {
+  view: ADMIN ? "admin-login" : "splash",
+  tab:"home", sub:null, rankMode:"class",
+  xp: 1340, history:[
+    {d:"10.07",p:"아침 운동",st:"COMPLETED",xp:30},
+    {d:"10.06",p:"아침 운동",st:"COMPLETED",xp:30},
+    {d:"10.06",p:"점심 운동",st:"FAILED",xp:0},
+    {d:"10.02",p:"아침 운동",st:"MANUAL",xp:30},
+    {d:"10.01",p:"특별 프로그램",st:"COMPLETED",xp:15}
+  ],
+  att:null,   // {prog, state, inAt, outAt, window}
+  pick:"test", msg:null, done:null,
+  // admin
+  aview:"dash", qrMode:"in", sessionOpen:true, live:null, alerts:[], issued:{}
+};
+
+/* ---------- level / tier ---------- */
+function levelOf(xp){let lv=1,need=100,acc=0;while(xp>=acc+need){acc+=need;lv++;need=100+20*(lv-1);}return {lv, into:xp-acc, need};}
+function tierOf(seasonXp){const t=[["LEGEND",2000],["ELITE",1300],["GOLD",800],["SILVER",400],["BRONZE",150],["ROOKIE",0]];for(const [n,v] of t) if(seasonXp>=v) return n;return "ROOKIE";}
+const seasonXp = () => S.xp - 740;
+
+/* ---------- helpers ---------- */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const mmss = s => { s=Math.max(0,Math.ceil(s)); const m=Math.floor(s/60); return (m?m+"분 ":"")+(s%60)+"초"; };
+const clock = s => { s=Math.max(0,Math.ceil(s)); return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); };
+const prog = id => PROGRAMS.find(p=>p.id===id);
+const mask = n => n[0]+"*"+n.slice(2);
+let toastT; function toast(t){const el=document.getElementById("toast");el.textContent=t;el.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove("on"),2200);}
+function hash(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(36).toUpperCase().padStart(7,"0");}
+const QR_INT = 30;
+const qrWindow = () => Math.floor(now()/1000/QR_INT);
+const token = (mode,w) => hash("nongso-secret|"+mode+"|"+w)+hash(mode+w).slice(0,3);
+
+/* ---------- icons ---------- */
+const IC = {
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg>',
+  my:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.4"/><path d="M5.8 16.5c.8-1.6 1.9-2.3 3.2-2.3s2.4.7 3.2 2.3M14.5 10h4M14.5 13.5h3"/></svg>',
+  rank:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 20h18M5 20v-6h4v6M10 20V8h4v12M15 20v-9h4v9"/></svg>',
+  more:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  back:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 5l-7 7 7 7"/></svg>',
+  trophy:c=>`<svg viewBox="0 0 40 40" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round"><path d="M12 6h16v8a8 8 0 0 1-16 0z"/><path d="M12 9H6v2a6 6 0 0 0 6 6M28 9h6v2a6 6 0 0 1-6 6M20 22v6M14 34h12M16 28h8v6h-8z"/></svg>`
+};
+
+/* ---------- live sim (shared by teacher view) ---------- */
+function initLive(){
+  if(S.live) return;
+  const t=now();
+  S.live = NAMES.map((n,i)=>{
+    if(i===ME_IDX) return {n,i,me:true};
+    const r=Math.random();
+    if(r<.35) return {n,i,state:"COMPLETED",inAt:t-60000,outAt:t-20000};
+    if(r<.6) return {n,i,state:"ACTIVE",inAt:t-Math.random()*18000};
+    return {n,i,state:"WAITING"};
+  });
+  S.alerts=[{t:"07:52",text:"<b>같은 기기 거부</b> · 정우진 학생 폰으로 다른 학생 체크인 시도"},{t:"07:49",text:"<b>만료된 QR</b> · 노윤우 학생이 2분 전 QR로 시도 (사진 공유 의심)"}];
+}
+function meRow(){
+  const a=S.att;
+  if(!a || a.prog!=="test") return {state:"WAITING"};
+  return {state:a.state,inAt:a.inAt,outAt:a.outAt};
+}
+function tickLive(){
+  if(!S.live||!S.sessionOpen) return;
+  const t=now(), min=prog("test").min*1000;
+  S.live.forEach(s=>{
+    if(s.me) return;
+    if(s.state==="WAITING" && Math.random()<.08){s.state="ACTIVE";s.inAt=t;}
+    else if(s.state==="ACTIVE" && t-s.inAt>=min && Math.random()<.35){s.state="COMPLETED";s.outAt=t;}
+  });
+}
+setInterval(tickLive,2000);
+
+/* ---------- student: attendance logic (stand-in for the server function) ---------- */
+function scan(mode, opts={}){
+  const p=prog(S.pick);
+  S.msg=null;
+  if(opts.expired){S.msg={k:"bad",t:"QR이 만료됐어요. 지금 화면에 떠 있는 QR을 다시 찍어 주세요."};return render();}
+  if(opts.otherDevice){S.msg={k:"bad",t:"이 기기는 이 세션에서 이미 다른 학생이 인증했어요. 내 휴대폰으로 찍어 주세요."};return render();}
+  const a=S.att && S.att.prog===p.id ? S.att : null;
+  if(mode==="in"){
+    if(a && a.state==="ACTIVE"){S.msg={k:"info",t:"이미 CHECK-IN 했어요. 운동을 마치고 CHECK-OUT QR을 찍어 주세요."};return render();}
+    if(a && (a.state==="COMPLETED"||a.state==="MANUAL")){S.msg={k:"info",t:"오늘 이 프로그램은 이미 완료했어요."};return render();}
+    const geo = p.geo ? " · 위치 확인 완료 (기준점에서 30m)" : "";
+    S.att={prog:p.id,state:"ACTIVE",inAt:now(),window:qrWindow()};
+    S.msg={k:"ok",t:"CHECK-IN 완료"+geo+". 지금부터 시간을 잴게요."};
+    S.done=null;
+    return render();
+  }
+  // out
+  if(!a || a.state!=="ACTIVE"){S.msg={k:"bad",t:"먼저 CHECK-IN QR을 찍어야 해요."};return render();}
+  const left=p.min - (now()-a.inAt)/1000;
+  if(left>0){S.msg={k:"bad",t:`아직 활동 인증 시간이 충족되지 않았습니다. ${mmss(left)} 남았어요.`};return render();}
+  const before=levelOf(S.xp).lv;
+  a.state="COMPLETED"; a.outAt=now();
+  S.xp+=p.xp;
+  S.history.unshift({d:"10.08",p:p.name,st:"COMPLETED",xp:p.xp});
+  S.done={xp:p.xp,up:levelOf(S.xp).lv>before,lv:levelOf(S.xp).lv};
+  S.msg=null;
+  render();
+}
+
+
+/* ---------- class race (head counts from the 2026 roster, participation is example) ---------- */
+const SIZES={1:[27,27,27,27,26,27,27,27,25],2:[25,26,25,26,26,26],3:[29,27,29,27,29]};
+const RDAYS=8;
+function rsample(g){return SIZES[g].map((n,i)=>{const base=[.58,.71,.49,.83,.64,.76,.55,.68,.61][(i+g*2)%9];return Math.round(n*RDAYS*base);});}
+const PRIZE={1:{what:"피자",art:pizza()},2:{what:"햄버거 · 핫도그",art:burger()},3:{what:"과자 · 간식",art:snack()}};
+function raceRows(g){const sizes=SIZES[g],parts=rsample(g);const rows=sizes.map((n,i)=>({cls:i+1,n,p:parts[i],rate:parts[i]/(n*RDAYS)}));const order=[...rows].sort((a,b)=>b.rate-a.rate);order.forEach((x,i)=>x.rank=i+1);return {rows,order};}
+function chaseOf(g,me){const {order}=raceRows(g);const i=order.findIndex(x=>x.cls===me);if(i<=0) return null;const m=order[i],up=order[i-1];return {need:Math.floor(up.rate*m.n*RDAYS-m.p)+1,up};}
+function raceHTML(g,compact,mine){
+  const {rows,order}=raceRows(g);
+  const pod=[1,2,3].map(k=>{const x=order[k-1];return `<div class="prize p${k}">${PRIZE[k].art}<div class="txt"><div class="rankno">${k}등</div><div class="what">${PRIZE[k].what}</div><div class="holder"><b class="num">${g}-${x.cls}</b><span>참여율 ${Math.round(x.rate*100)}%</span></div></div></div>`;}).join("");
+  const flag='<svg class="flag" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v18" stroke="#eef1ff" stroke-width="2"/><path d="M6 4h12l-3 4 3 4H6z" fill="#ff7a2f"/></svg>';
+  const lanes=`<div class="scale"><span>학급</span><div class="ticks">${[0,25,50,75,100].map(v=>`<span style="left:${v}%">${v}%</span>`).join("")}</div><span style="text-align:right">참여율</span></div>`+rows.map(x=>{const pct=Math.min(1,x.rate)*100;return `<div class="lane r${x.rank<=3?x.rank:0} ${x.cls===mine?"mine":""}"><div class="cls num">${x.cls}반<small>${x.n}명</small></div><div class="road" role="img" aria-label="${x.cls}반 참여율 ${Math.round(pct)}%"><div class="fill" style="width:${pct}%"></div>${flag}<div class="runner" style="left:clamp(20px, ${pct}%, calc(100% - 20px))">${x.cls}</div></div><div class="res"><b class="num">${Math.round(pct)}%</b>${x.rank<=3?`<span class="tag">${x.rank}등</span>`:""}<small>${x.rank}위 · 누적 ${x.p}명</small></div></div>`;}).join("");
+  const ch=[];for(const i of [3,1,2,4]){if(i>=order.length)continue;const m=order[i],up=order[i-1];const need=Math.floor(up.rate*m.n*RDAYS-m.p)+1;const goal=up.rank<=3?`${up.rank}등 ${PRIZE[up.rank].what}`:`${up.rank}위`;ch.push(`<div><b class="num">${g}-${m.cls}</b> 참여 <b class="num">${need}번</b>만 더 모이면<br><span style="color:var(--muted)">${g}-${up.cls}반을 따라잡고 ${goal} 자리에 올라요</span></div>`);if(ch.length===(compact?2:3))break;}
+  return `<div class="racewrap ${compact?"compact":""}"><section class="podium">${pod}</section><section class="track"><div class="track-inner">${lanes}</div></section><section class="chase">${ch.join("")}</section></div>`;
+}
+/* ---- prize illustrations (flat, drawn inline) ---- */
+function pizza(){return `<svg class="art" viewBox="0 0 200 140" aria-hidden="true">
+  <ellipse cx="100" cy="128" rx="78" ry="8" fill="rgba(0,0,0,.25)"/>
+  <circle cx="100" cy="72" r="58" fill="#e8a24a"/><circle cx="100" cy="72" r="50" fill="#f6c453"/>
+  <path d="M100 72 L150 50 A50 50 0 0 0 128 30 Z" fill="#0d1430" opacity=".9"/>
+  <g fill="#d6452f"><circle cx="78" cy="56" r="8"/><circle cx="116" cy="92" r="8"/><circle cx="76" cy="94" r="7"/><circle cx="104" cy="44" r="6"/><circle cx="130" cy="72" r="7"/></g>
+  <g fill="#3f8f4a"><rect x="92" y="66" width="8" height="4" rx="2" transform="rotate(30 96 68)"/><rect x="62" y="74" width="8" height="4" rx="2"/><rect x="100" y="104" width="8" height="4" rx="2" transform="rotate(-20 104 106)"/></g>
+  <path d="M158 40 L188 26 A40 40 0 0 1 182 62 Z" fill="#f6c453" stroke="#e8a24a" stroke-width="5" stroke-linejoin="round"/><circle cx="178" cy="44" r="5" fill="#d6452f"/>
+</svg>`;}
+function burger(){return `<svg class="art" viewBox="0 0 200 140" aria-hidden="true">
+  <ellipse cx="100" cy="130" rx="80" ry="7" fill="rgba(0,0,0,.25)"/>
+  <path d="M28 70 Q28 30 76 30 Q124 30 124 70 Z" fill="#e9a04a"/>
+  <g fill="#fff3d6"><ellipse cx="58" cy="46" rx="3" ry="2"/><ellipse cx="76" cy="40" rx="3" ry="2"/><ellipse cx="94" cy="48" rx="3" ry="2"/><ellipse cx="70" cy="56" rx="3" ry="2"/></g>
+  <path d="M24 72 h104 l-8 8 l-8 -6 l-8 6 l-8 -6 l-8 6 l-8 -6 l-8 6 l-8 -6 l-8 6 l-8 -6 l-8 6 l-8 -6 z" fill="#4caf50"/>
+  <rect x="26" y="80" width="100" height="10" rx="3" fill="#f2c230"/>
+  <rect x="24" y="88" width="104" height="16" rx="8" fill="#7a3e1c"/>
+  <path d="M28 106 h96 q0 16 -16 16 h-64 q-16 0 -16 -16z" fill="#e9a04a"/>
+  <rect x="134" y="78" width="56" height="30" rx="15" fill="#e9a04a"/>
+  <rect x="128" y="84" width="68" height="16" rx="8" fill="#b9472b"/>
+  <path d="M136 92 q6 -6 12 0 t12 0 t12 0 t12 0" fill="none" stroke="#f2c230" stroke-width="3" stroke-linecap="round"/>
+  <path d="M134 104 h56 q0 12 -14 12 h-28 q-14 0 -14 -12z" fill="#d88c3a"/>
+</svg>`;}
+function snack(){return `<svg class="art" viewBox="0 0 200 140" aria-hidden="true">
+  <ellipse cx="100" cy="130" rx="80" ry="7" fill="rgba(0,0,0,.25)"/>
+  <path d="M40 22 l60 0 l-4 10 l6 80 l4 10 l-66 0 l4 -10 l6 -80 z" fill="#45d2c6"/>
+  <path d="M40 22 h60 l-4 10 h-52z M38 112 h66 l4 10 h-74z" fill="#2aa79c"/>
+  <circle cx="70" cy="68" r="20" fill="#ffd166"/><text x="70" y="74" text-anchor="middle" font-family="Saira Condensed, sans-serif" font-weight="800" font-size="17" fill="#0d1430">CHIP</text>
+  <g transform="rotate(-18 150 60)"><rect x="128" y="48" width="44" height="24" rx="12" fill="#ff7a2f"/><path d="M128 60 l-14 -10 v20z M172 60 l14 -10 v20z" fill="#ff9d5c"/><path d="M140 52 v16 M150 52 v16 M160 52 v16" stroke="#ffd2b3" stroke-width="3"/></g>
+  <g transform="translate(150 104)"><rect x="-20" y="-12" width="40" height="22" rx="4" fill="#cfd8ea"/><rect x="-20" y="-12" width="40" height="7" rx="3" fill="#8f9cc1"/><circle cx="-8" cy="3" r="3" fill="#7a3e1c"/><circle cx="6" cy="2" r="3" fill="#7a3e1c"/></g>
+</svg>`;}
+
+
+/* ---------- student views ---------- */
+function vSplash(){
+  return `<div class="splash" id="splash" role="button" tabindex="0" aria-label="시작하기" style="background-image:url(${PHOTO})">
+    <div class="sp-tag">농소중학교 체육</div>
+    <div class="sp-name">NONGSO<br>SPORTS SCHOOL</div>
+    <div class="sp-ko">농소스포츠스쿨</div>
+    <div class="sp-loop"><b>MOVE</b>›<b>CHECK</b>›<b>RECORD</b>›<b>GROW</b></div>
+    <div class="sp-bar"><i></i></div>
+  </div>`;
+}
+function vLogin(){
+  const first = S.sub==="activate";
+  return `<div class="login">
+    <div class="loginphoto" style="background-image:url(${PHOTO})"><div>NONGSO<br>SPORTS SCHOOL</div></div>
+    <div class="seg"><button data-act="login-tab" data-v="" class="${first?"":"on"}">로그인</button><button data-act="login-tab" data-v="activate" class="${first?"on":""}">처음이에요</button></div>
+    <form id="loginForm" class="stack">
+      <div class="field"><label for="sid">학번 5자리</label><input id="sid" inputmode="numeric" value="20312"></div>
+      ${first?`<div class="field"><label for="sname">이름</label><input id="sname" value="김하준"></div>
+      <div class="field"><label for="spw1">처음 비밀번호 만들기 (8자 이상)</label><input id="spw1" type="password" value="nongso2027"></div>
+      <div class="field"><label for="spw2">비밀번호 한 번 더</label><input id="spw2" type="password" value="nongso2027"></div>`
+      :`<div class="field"><label for="spw">비밀번호</label><input id="spw" type="password" value="nongso2027"></div>`}
+      <button class="btn" type="submit">${first?"계정 만들고 시작하기":"로그인"}</button>
+      <p class="small muted" style="margin:0">${first?"이름과 학번이 학교 명렬과 맞아야 만들 수 있어요. '이미 가입된 학번'이라고 나오면 체육 선생님께 말해요.":"비밀번호를 잊었으면 체육 선생님께 초기화를 부탁해요."}</p>
+    </form>
+  </div>`;
+}
+function topline(){
+  return `<div class="topline"><div class="brand">NONGSO <em>SPORTS</em></div><div class="who">2학년 3반 12번 김하준</div></div>`;
+}
+function vHome(){
+  const L=levelOf(S.xp), a=S.att;
+  const active = a && a.state==="ACTIVE";
+  const left = active ? prog(a.prog).min-(now()-a.inAt)/1000 : 0;
+  return `<div class="stack">
+    ${topline()}
+    ${active?`<button class="sess" data-act="tab" data-v="check" style="border-color:var(--data)">
+      <div class="tm num" data-live="homeLeft">${left>0?clock(left):"OK"}<small>${left>0?"남음":"완료 가능"}</small></div>
+      <div class="meta"><span class="state st-ACTIVE">ACTIVE</span><b style="margin-top:6px">${prog(a.prog).name} 활동 중</b><span class="small muted">${left>0?"시간이 다 되면 CHECK-OUT QR을 찍어요":"이제 CHECK-OUT QR을 찍어요"}</span></div></button>`:""}
+    <section class="hero stack">
+      <div class="row between" style="position:relative;z-index:1"><span class="eyebrow">MY LEVEL</span><span class="tier">${tierOf(seasonXp())}</span></div>
+      <div class="lv"><div class="lv-num num"><small>LV</small>${L.lv}</div><div style="flex:1;padding-bottom:4px"><div class="row between small"><span class="muted">다음 레벨까지</span><span class="num">${L.need-L.into} XP</span></div><div class="bar" style="margin-top:6px"><i style="width:${L.into/L.need*100}%"></i></div></div></div>
+      <div class="stat3"><div><b class="num">${S.xp.toLocaleString()}</b><span>누적 XP</span></div><div><b class="num">4<span style="font-size:14px">/5</span></b><span>이번 주 참여</span></div><div><b class="num">6주</b><span>연속 참여</span></div></div>
+    </section>
+    <section class="stack">
+      <div class="row between"><h3 style="font-size:17px">오늘 열린 운동</h3><span class="open">● LIVE</span></div>
+      ${PROGRAMS.slice(0,2).map(p=>`<button class="sess" data-act="pick" data-v="${p.id}">
+        <div class="tm num">${p.min>=60?p.min/60:p.min}<small>${p.min>=60?"분":"초"}</small></div>
+        <div class="meta"><b>${p.name}</b><span class="small muted">${p.id==="test"?"체험용으로 20초만 하면 돼요":"체육관 · 07:40 ~ 08:20"} · +${p.xp} XP${p.geo?" · 위치 인증":""}</span></div>
+        <span class="chip">CHECK ›</span></button>`).join("")}
+    </section>
+    ${homeMissions()}
+    ${(()=>{const {order}=raceRows(2),me=order.find(x=>x.cls===3),c=chaseOf(2,3),pr=me.rank<=3?PRIZE[me.rank].what:"";return `<button class="card" data-act="tab" data-v="rank" style="text-align:left;width:100%"><div class="row between"><span class="eyebrow">아침 운동 학급 레이스</span><span class="back">보기 ›</span></div>
+      <div class="row" style="margin-top:8px;align-items:flex-end"><div class="num" style="font:800 46px/1 var(--display);color:var(--court)">${me.rank}<span style="font-size:18px">위</span></div><div class="small muted" style="padding-bottom:6px">2학년 6개 반 중 · 참여율 ${Math.round(me.rate*100)}%${pr?` · 지금 상품 <b style="color:var(--fg)">${pr}</b>`:""}<br>${c?`참여 ${c.need}번만 더 모이면 ${c.up.rank}위로 올라가요`:"1등을 지키고 있어요"}</div></div></button>`;})()}
+  </div>`;
+}
+function vCheck(){
+  const p=prog(S.pick), a=S.att && S.att.prog===p.id ? S.att : null;
+  const st = a ? a.state : "WAITING";
+  let body="";
+  if(S.done){
+    body=`<div class="card xpburst"><span class="state st-COMPLETED">COMPLETED</span><b class="num">+${S.done.xp}</b><div class="eyebrow" style="color:var(--fg)">XP 획득</div>
+      ${S.done.up?`<div class="msg ok" style="margin-top:14px">레벨 업! 이제 LV ${S.done.lv}이에요.</div>`:""}
+      <p class="small muted">${p.name} · ${mmss((a.outAt-a.inAt)/1000)} 활동</p>
+      <div class="row" style="margin-top:6px"><button class="btn ghost" data-act="tab" data-v="my">SPORTS ID 보기</button><button class="btn" data-act="reset">다시 체험하기</button></div></div>`;
+  } else if(st==="ACTIVE"){
+    const el=(now()-a.inAt)/1000, left=p.min-el, pct=Math.min(1,el/p.min), C=2*Math.PI*96;
+    body=`<div class="card stack" style="align-items:center;text-align:center">
+      <span class="state st-ACTIVE">ACTIVE · 활동 중</span>
+      <div class="ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" stroke="var(--panel2)" stroke-width="14" fill="none"/><circle data-live="ring" cx="110" cy="110" r="96" stroke="${left>0?"var(--data)":"var(--good)"}" stroke-width="14" fill="none" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-pct)}"/></svg>
+        <div class="in"><b class="num" data-live="left">${left>0?clock(left):"00:00"}</b><span class="small muted" data-live="leftlab">${left>0?"최소 활동시간 남음":"CHECK-OUT 할 수 있어요"}</span></div></div>
+      <p class="small muted" style="margin:0">시간은 학교 서버 시계로 재요. 앱을 닫아도 계속 흘러가요.</p>
+      <button class="btn" data-act="scan" data-v="out" style="background:var(--court)">TV의 CHECK-OUT QR 찍기</button></div>`;
+  } else {
+    body=`<div class="scanner"><div class="frame"><i></i><i></i><i></i><i></i></div><div class="laser"></div><div class="cap">체험판에서는 카메라 대신 아래 버튼을 눌러요</div></div>
+      <button class="btn teal" data-act="scan" data-v="in">TV의 CHECK-IN QR 찍기</button>`;
+  }
+  return `<div class="stack">
+    ${topline()}
+    <div class="pagehead"><span class="eyebrow">CHECK</span><h2>${p.name}</h2>
+      <div class="row small muted" style="flex-wrap:wrap;gap:8px"><span class="chip">최소 ${mmss(p.min)}</span><span class="chip">+${p.xp} XP</span>${p.geo?'<span class="chip">위치 인증</span>':""}<span class="state st-${st}">${st}</span></div></div>
+    ${!a?`<div class="seg">${PROGRAMS.slice(0,2).map(x=>`<button data-act="pickstay" data-v="${x.id}" class="${x.id===p.id?"on":""}">${x.name}</button>`).join("")}</div>`:""}
+    ${S.msg?`<div class="msg ${S.msg.k}" role="alert">${esc(S.msg.t)}</div>`:""}
+    ${body}
+    ${!S.done?`<section class="card stack"><div><span class="eyebrow">부정 시도 체험</span><p class="small muted" style="margin:6px 0 0">대리 출석을 하면 어떻게 막히는지 눌러 보세요.</p></div>
+      <div class="cheat"><button data-act="cheat" data-v="expired">단톡방에 돌던 QR 사진 찍기</button><button data-act="cheat" data-v="device">친구 폰으로 대신 찍기</button>
+      ${st==="ACTIVE"?`<button data-act="scan" data-v="out">시간 전에 CHECK-OUT 찍기</button><button data-act="scan" data-v="in">CHECK-IN QR 또 찍기</button>`:""}</div></section>`:""}
+  </div>`;
+}
+function radar(vals){
+  const labels=["ACTIVITY","STAMINA","CHALLENGE","VARIETY","TEAMWORK"],cx=150,cy=128,R=88;
+  const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/5;return [cx+Math.cos(a)*r,cy+Math.sin(a)*r];};
+  const poly=r=>labels.map((_,i)=>pt(i,r).join(",")).join(" ");
+  const data=vals.map((v,i)=>pt(i,R*v/100).join(",")).join(" ");
+  return `<svg viewBox="0 0 300 262" role="img" aria-label="SPORTS DNA 5축 그래프" style="width:100%;max-width:340px;display:block;margin:0 auto">
+    ${[.25,.5,.75,1].map(k=>`<polygon points="${poly(R*k)}" fill="none" stroke="var(--line)" stroke-width="1"/>`).join("")}
+    ${labels.map((_,i)=>{const [x,y]=pt(i,R);return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="var(--line)"/>`}).join("")}
+    <polygon points="${data}" fill="rgba(69,210,198,.22)" stroke="var(--data)" stroke-width="2.5" stroke-linejoin="round"/>
+    ${vals.map((v,i)=>{const [x,y]=pt(i,R*v/100);return `<circle cx="${x}" cy="${y}" r="4" fill="var(--data)"/>`}).join("")}
+    ${labels.map((l,i)=>{const [x,y]=pt(i,R+22);return `<text x="${x}" y="${y+4}" text-anchor="middle" fill="var(--muted)" font-family="Saira Condensed, sans-serif" font-weight="700" font-size="12" letter-spacing="1">${l}</text><text x="${x}" y="${y+19}" text-anchor="middle" fill="var(--fg)" font-family="Saira Condensed, sans-serif" font-weight="800" font-size="14">${vals[i]}</text>`}).join("")}
+  </svg>`;
+}
+
+/* ---------- PAPS 중학교 기준 (2025, 공개 기준표 옮김) ---------- */
+const PAPS={
+  items:{
+    shuttle:{el:"심폐지구력",name:"왕복오래달리기",unit:"회",hi:true,step:1,cut:{"1M":[64,50,36,20],"2M":[66,52,38,22],"3M":[68,54,40,24],"1F":[35,25,19,14],"2F":[40,29,21,15],"3F":[45,33,23,16]}},
+    curl:{el:"근지구력",name:"윗몸말아올리기",unit:"회",hi:true,step:1,cut:{"1M":[90,55,33,14],"2M":[90,55,33,14],"3M":[90,55,33,14],"1F":[58,43,22,7],"2F":[58,39,19,7],"3F":[52,34,17,6]}},
+    reach:{el:"유연성",name:"앉아윗몸앞으로굽히기",unit:"cm",hi:true,step:0.1,cut:{"1M":[10,6,2,-4],"2M":[10,7,2,-4],"3M":[10,7,2.6,-3],"1F":[15,11,8,2],"2F":[16,11,8,2],"3F":[16,11,8,2]}},
+    run50:{el:"순발력",name:"50m 달리기",unit:"초",hi:false,step:0.01,cut:{"1M":[7.5,8.4,9.3,11.5],"2M":[7.3,8.2,9.0,11.5],"3M":[7.0,7.8,8.5,11.0],"1F":[8.8,9.8,10.5,12.2],"2F":[8.8,9.8,10.5,12.2],"3F":[8.8,9.8,10.5,12.2]}},
+    jump:{el:"순발력",name:"제자리멀리뛰기",unit:"cm",hi:true,step:0.1,cut:{"1M":[211.1,177.1,159.1,131.1],"2M":[218.1,187.1,169.1,136.1],"3M":[238.1,201.1,180.1,145.1],"1F":[175.1,144.1,127.1,100.1],"2F":[183.1,145.1,127.1,100.1],"3F":[183.1,145.1,127.1,100.1]}},
+    grip:{el:"근력",name:"악력",unit:"kg",hi:true,step:0.1,cut:{"1M":[42,30,22.5,16.5],"2M":[44.5,37,28.5,22],"3M":[48.5,40.5,33,25],"1F":[36,23,19,14],"2F":[36,25.5,19.5,14],"3F":[36,27.5,19.5,16]}},
+    bmi:{el:"BMI",name:"체질량지수",unit:"",hi:null}
+  },
+  // BMI 판정 경계: 마름 이하, 정상 이하, 과체중 이하, 경도비만 이하
+  bmi:{"1M":[15.4,22.6,24.7,34.7],"2M":[16.1,23.1,25.6,35.6],"3M":[16.7,23.7,25.9,35.9],"1F":[15.5,22.9,25.7,35.8],"2F":[15.9,23.3,26.2,36.3],"3F":[16.5,23.7,26.6,36.7]},
+  bmiNames:["마름","정상","과체중","경도비만","고도비만"],
+  // 그래프 점수용 순서: 정상=1, 마름·과체중=2, 경도비만=4, 고도비만=5
+  bmiOrder:[2,1,2,4,5]
+};
+function bmiCat(g,sex,v){const c=PAPS.bmi[g+sex];return v<=c[0]?0:v<=c[1]?1:v<=c[2]?2:v<=c[3]?3:4;}
+function papsGrade(key,g,sex,v){
+  if(key==="bmi"){const c=PAPS.bmi[g+sex];const i=v<=c[0]?0:v<=c[1]?1:v<=c[2]?2:v<=c[3]?3:4;return PAPS.bmiOrder[i];}
+  const it=PAPS.items[key],c=it.cut[g+sex];
+  for(let i=0;i<4;i++){ if(it.hi? v>=c[i] : v<=c[i]) return i+1; }
+  return 5;
+}
+function papsRange(it,c,gr){
+  const f=x=>+x.toFixed(it.step<1?(it.step===0.01?2:1):0);
+  if(it.hi){ if(gr===1) return `${f(c[0])}↑`; if(gr===5) return `${f(c[3]-it.step)}↓`; return `${f(c[gr-1])}~${f(c[gr-2]-it.step)}`; }
+  if(gr===1) return `${f(c[0])}↓`; if(gr===5) return `${f(c[3]+it.step)}↑`; return `${f(c[gr-2]+it.step)}~${f(c[gr-1])}`;
+}
+function popsRadar(labels,vals,prev,grades){
+  const cx=160,cy=136,R=92;
+  const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/5;return [cx+Math.cos(a)*r,cy+Math.sin(a)*r];};
+  const poly=arr=>arr.map((v,i)=>pt(i,R*v/100).join(",")).join(" ");
+  const ring=r=>labels.map((_,i)=>pt(i,r).join(",")).join(" ");
+  const minI=vals.indexOf(Math.min(...vals));
+  return `<svg viewBox="0 0 320 278" role="img" aria-label="POPS 5가지 체력 요소 그래프" style="width:100%;max-width:360px;display:block;margin:6px auto 0">
+    ${[.2,.4,.6,.8,1].map(k=>`<polygon points="${ring(R*k)}" fill="none" stroke="var(--line)"/>`).join("")}
+    ${labels.map((_,i)=>{const [x,y]=pt(i,R);return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="var(--line)"/>`}).join("")}
+    <polygon points="${poly(prev)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4"/>
+    <polygon points="${poly(vals)}" fill="rgba(255,122,47,.2)" stroke="var(--court)" stroke-width="2.5" stroke-linejoin="round"/>
+    ${vals.map((v,i)=>{const [x,y]=pt(i,R*v/100);return `<circle cx="${x}" cy="${y}" r="${i===minI?6:4}" fill="${i===minI?"var(--bad)":"var(--court)"}"/>`}).join("")}
+    ${labels.map((l,i)=>{const [x,y]=pt(i,R+26);return `<text x="${x}" y="${y}" text-anchor="middle" fill="${i===minI?"var(--bad)":"var(--fg)"}" font-family="Noto Sans KR, sans-serif" font-weight="700" font-size="13">${l}</text><text x="${x}" y="${y+17}" text-anchor="middle" fill="var(--muted)" font-family="Saira Condensed, sans-serif" font-weight="700" font-size="13">${grades[i]}</text>`}).join("")}
+  </svg>`;
+}
+function vMy(){
+  const L=levelOf(S.xp), done=S.history.filter(h=>h.st!=="FAILED").length+38;
+  return `<div class="stack">
+    ${topline()}
+    <div class="pagehead"><span class="eyebrow">MY SPORTS</span><h2>SPORTS ID</h2></div>
+    <section class="idcard">
+      <div class="row between"><span class="idno">NS-2027-0142</span><span class="tier">${tierOf(seasonXp())}</span></div>
+      <div class="idname">김하준</div><div class="small muted">농소중학교 · 2학년 3반 · 2027-2 시즌</div>
+      <div style="margin-top:14px"><div class="row between small"><span class="num" style="font:800 20px var(--display)">LV ${L.lv}</span><span class="muted num">${L.into} / ${L.need} XP</span></div><div class="bar" style="margin-top:6px"><i style="width:${L.into/L.need*100}%"></i></div></div>
+      <div class="idgrid"><div><b class="num">${S.xp.toLocaleString()}</b><span>누적 XP</span></div><div><b class="num">${done}</b><span>참여 횟수</span></div><div><b class="num">7.2h</b><span>활동 시간</span></div><div><b class="num">6주</b><span>연속 참여</span></div></div>
+      <div class="badges"><span class="badge"><i></i>아침 30회</span><span class="badge"><i style="background:var(--data)"></i>6주 연속</span><span class="badge"><i style="background:var(--warn)"></i>반 챌린지 MVP</span></div>
+    </section>
+    <section class="card"><div class="row between"><span class="eyebrow">SPORTS DNA · 최근 8주</span><span class="chip ph">PHASE 2</span></div>${radar([86,75,52,64,70])}
+      <p class="small muted" style="margin:0">출석·챌린지 같은 활동 기록만으로 계산해요. POPS 체력 기록은 쓰지 않아요.</p></section>
+    <section class="card"><span class="eyebrow">시즌 기록</span><div class="mini" style="font-size:13px;margin-top:10px"><span>2027-1 <b>BRONZE</b></span><span>2027-2 <b>${tierOf(seasonXp())}</b> 진행 중 · 이번 시즌 ${seasonXp()} XP</span></div></section>
+  </div>`;
+}
+const CLASSES=[["2학년 5반",78.4,.92,.61,.81],["2학년 3반",74.2,.88,.55,.78],["2학년 1반",69.0,.84,.49,.70],["2학년 7반",61.3,.76,.42,.62],["2학년 2반",57.8,.72,.38,.58],["2학년 8반",49.5,.6,.33,.5],["2학년 4반",44.1,.52,.30,.47],["2학년 6반",38.7,.44,.28,.4]];
+const PEOPLE=[["서예준",2140],["최승현",1990],["이서아",1875],["김하준",null],["박시우",1290],["한소율",1210],["오건우",1150]];
+function vRank(){
+  const cls = S.rankMode==="class";
+  let list;
+  if(!cls){
+    const ppl=PEOPLE.map(p=>[p[0],p[1]??S.xp]).sort((a,b)=>b[1]-a[1]);
+    list=ppl.map((p,i)=>`<div class="rk ${p[0]==="김하준"?"me":""}"><div class="pos num p${i+1}">${i+1}</div><div><b>${p[0]==="김하준"?"김하준 (나)":mask(p[0])}</b><div class="mini"><span>2학년 · 이번 시즌</span></div></div><div class="sc num">${(p[1]-740).toLocaleString()}<small>SEASON XP</small></div></div>`).join("");
+  }
+  const g=S.sGrade||2, c=chaseOf(2,3);
+  return `<div class="stack">
+    ${topline()}
+    <div class="pagehead"><span class="eyebrow">RANKING · ${cls?g:2}학년 · 10.12 ~ 10.30</span><h2>${cls?"아침 운동 학급 레이스":"개인 랭킹"}</h2></div>
+    <div class="seg"><button data-act="rank" data-v="class" class="${cls?"on":""}">학급 레이스</button><button data-act="rank" data-v="person" class="${cls?"":"on"}">개인</button></div>
+    ${cls?`<div class="gtabs" role="tablist">${[1,2,3].map(x=>`<button role="tab" aria-selected="${x===g}" data-act="sgrade" data-v="${x}" class="${x===g?"on":""}">${x}학년${x===2?" (우리)":""}</button>`).join("")}</div>${g!==2?"":c?`<div class="msg info">우리 반(2-3)은 참여 <b>${c.need}번</b>만 더 모이면 2-${c.up.cls}반을 따라잡아요.</div>`:`<div class="msg ok">우리 반이 2학년 1등이에요!</div>`}${raceHTML(g,false,g===2?3:0)}
+      <p class="small muted" style="margin:0">점수는 참여율이에요. 아침 운동에서 CHECK-IN과 CHECK-OUT을 모두 마친 학생만 세요.</p>`
+     :`<div class="msg info small" style="font-weight:500">다른 친구 이름은 가운데 글자를 가려요. 출석 시각이나 POPS 기록은 보이지 않아요.</div><div class="stack" style="gap:8px">${list}</div>`}
+  </div>`;
+}
+function vMore(){
+  const items=[["mission","MISSION",`오늘의 미션 하기${S.missions.filter(m=>!m.done).length?` · ${S.missions.filter(m=>!m.done).length}개 남음`:""}`,""],["pops","POPS","내 체력 기록과 학년별 성장","PHASE 3"],["challenge","CHALLENGE","진행 중인 도전","PHASE 2"],["trophy","TROPHY","모은 배지와 트로피","PHASE 2"],["history","활동 기록","내 출석과 XP 내역",""],["settings","설정","비밀번호 변경, 로그아웃",""]];
+  return `<div class="stack">${topline()}<div class="pagehead"><span class="eyebrow">MORE</span><h2>더보기</h2></div>
+    <div class="menu">${items.map(i=>`<button data-act="sub" data-v="${i[0]}"><span class="k">${i[1]}</span><span class="d">${i[2]}</span>${i[3]?`<span class="chip ph">${i[3]}</span>`:""}<span class="muted">›</span></button>`).join("")}</div></div>`;
+}
+function subHead(eb,title,ph){return `${topline()}<button class="back" data-act="sub" data-v="">${IC.back} 더보기</button><div class="pagehead"><div class="row between"><span class="eyebrow">${eb}</span>${ph?`<span class="chip ph">${ph}</span>`:""}</div><h2>${title}</h2></div>`;}
+function vSub(){
+  const k=S.sub;
+  if(k==="mission") return vMissions();
+  if(k==="mrun") return vMissionRun();
+  if(k==="pops"){
+    const me={g:2,sex:"M"}, last={g:1,sex:"M"};
+    // 예시 기록: [요소, 종목 키, 1학년 값, 2학년 값]
+    const rec=[["심폐지구력","shuttle",42,55],["근지구력","curl",30,40],["순발력","run50",8.9,7.9],["BMI","bmi",22.8,21.2],["유연성","reach",1.0,1.5]];
+    const rows=rec.map(r=>({el:r[0],key:r[1],it:PAPS.items[r[1]],prev:r[2],cur:r[3],gp:papsGrade(r[1],last.g,last.sex,r[2]),gc:papsGrade(r[1],me.g,me.sex,r[3]),cat:r[1]==="bmi"?bmiCat(me.g,me.sex,r[3]):-1}));
+    const sc=x=>(6-x)*20;
+    const now=rows.map(r=>sc(r.gc)), prev=rows.map(r=>sc(r.gp));
+    const weakI=now.indexOf(Math.min(...now)), w=rows[weakI];
+    const josa=/[가-힣]$/.test(w.el)&&((w.el.charCodeAt(w.el.length-1)-44032)%28)?"이":"가";
+    const tip={"유연성":"스트레칭 미션을 매일 5분씩 해 보세요.","근지구력":"윗몸말아올리기·플랭크 미션을 추천해요.","심폐지구력":"아침 줄넘기·달리기 참여를 늘려 보세요.","순발력":"점프·짧은 달리기 운동을 추천해요.","BMI":"꾸준한 아침 운동과 식습관을 같이 챙겨요."}[w.el];
+    const gLab=r=>r.key==="bmi"?PAPS.bmiNames[r.cat]:r.gc+"등급";
+    const vg=S.papsG||me.g, vs=S.papsS||me.sex, mine=vg===me.g&&vs===me.sex;
+    return `<div class="stack">${subHead("POPS · 학생건강체력평가","내 체력 기록","PHASE 3")}
+      <div class="msg info small" style="font-weight:500">나와 담당 선생님만 볼 수 있어요. 순위나 XP에는 쓰지 않아요.</div>
+      <section class="card"><span class="eyebrow">MY FITNESS · 등급으로 본 5가지 체력</span>
+        ${popsRadar(rows.map(r=>r.el),now,prev,rows.map(gLab))}
+        <div class="row small" style="gap:16px;justify-content:center;margin-top:4px"><span class="row" style="gap:6px"><i style="width:14px;height:3px;background:var(--court);display:inline-block"></i>2학년</span><span class="row muted" style="gap:6px"><i style="width:14px;height:0;border-top:2px dashed var(--muted);display:inline-block"></i>1학년</span></div>
+        <div class="msg bad" style="margin-top:12px"><b>${w.el}</b>${josa} 가장 부족해요 (${gLab(w)}). ${tip}</div></section>
+      <div class="card scroll"><table class="tbl"><thead><tr><th>체력 요소</th><th>종목</th><th class="r">1학년</th><th class="r">2학년</th><th class="r">판정</th></tr></thead><tbody>
+      ${rows.map(r=>{const up=r.gc<r.gp,same=r.gc===r.gp;return `<tr><td><b>${r.el}</b></td><td class="muted">${r.it.name}</td><td class="r num">${r.prev}${r.it.unit}</td><td class="r num"><b>${r.cur}${r.it.unit}</b></td><td class="r"><b>${gLab(r)}</b> ${same?'<span class="muted small">유지</span>':`<span class="grow ${up?"":"down"}">${up?"▲":"▼"}</span>`}</td></tr>`}).join("")}
+      </tbody></table></div>
+      <section class="card stack" style="gap:12px">
+        <div class="row between" style="flex-wrap:wrap;gap:8px"><span class="eyebrow">PAPS 등급 기준표 · 중학교</span>${mine?'<span class="chip">내 기록 위치 표시</span>':""}</div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <div class="seg" style="grid-template-columns:repeat(3,1fr);flex:1;min-width:200px">${[1,2,3].map(x=>`<button data-act="papsg" data-v="${x}" class="${x===vg?"on":""}">중${x}</button>`).join("")}</div>
+          <div class="seg" style="flex:1;min-width:140px">${[["M","남"],["F","여"]].map(x=>`<button data-act="papss" data-v="${x[0]}" class="${x[0]===vs?"on":""}">${x[1]}</button>`).join("")}</div></div>
+        <div class="scroll"><table class="tbl papstbl"><thead><tr><th>종목</th><th class="r">1등급</th><th class="r">2등급</th><th class="r">3등급</th><th class="r">4등급</th><th class="r">5등급</th></tr></thead><tbody>
+        ${["shuttle","curl","reach","run50","jump","grip"].map(key=>{const it=PAPS.items[key],cut=it.cut[vg+vs],my=mine?rows.find(r=>r.key===key):null,myg=my?my.gc:0;
+          return `<tr><td><b>${it.el}</b><br><span class="muted small">${it.name}${it.unit?" ("+it.unit+")":""}</span></td>${[1,2,3,4,5].map(gr=>`<td class="r num ${gr===myg?"hit":""}">${papsRange(it,cut,gr)}</td>`).join("")}</tr>`;}).join("")}
+        </tbody></table></div>
+        <div class="scroll"><table class="tbl papstbl"><thead><tr><th>BMI (kg/m²)</th>${PAPS.bmiNames.map(n=>`<th class="r">${n}</th>`).join("")}</tr></thead><tbody>
+        <tr><td><b>체질량지수</b></td>${[1,2,3,4,5].map(i=>{const c=PAPS.bmi[vg+vs],myg=mine?rows.find(r=>r.key==="bmi").cat:-1,f=x=>(+x).toFixed(1);const txt=i===1?`${f(c[0])}↓`:i===5?`${f(c[3]+0.1)}↑`:`${f(c[i-2]+0.1)}~${f(c[i-1])}`;return `<td class="r num ${i-1===myg?"hit":""}">${txt}</td>`}).join("")}</tr></tbody></table></div>
+        <p class="small muted" style="margin:0">↑는 이상, ↓는 이하예요. 2025년 기준으로 인터넷에 공개된 표를 옮긴 것이라, 실제 앱에 넣기 전에 학교의 나이스 기준표와 한 번 맞춰 볼게요. 출처: <a href="https://dikr.co.kr/paps-%ED%8C%9D%EC%8A%A4-%EA%B8%B0%EC%A4%80%ED%91%9C-%EC%B4%88%EC%A4%91%EA%B3%A0%EB%93%B1%ED%95%99%EA%B5%90-%ED%95%99%EC%83%9D-%EC%B2%B4%EB%A0%A5-%ED%8F%89%EA%B0%80-%EB%93%B1%EA%B8%89/" style="color:var(--data)">PAPS 팝스 기준표 (2025)</a>, 학교건강검사규칙 별표 4</p>
+      </section></div>`;
+  }
+  if(k==="challenge"){
+    const ch=[["10월 아침 15회 출석","개인",11,15],["3반 참여율 90% 만들기","학급",88,90],["점심 운동 5회","개인",2,5]];
+    return `<div class="stack">${subHead("CHALLENGE","도전","PHASE 2")}${ch.map(c=>`<div class="card stack" style="gap:8px"><div class="row between"><b>${c[0]}</b><span class="chip">${c[1]}</span></div><div class="bar teal"><i style="width:${c[2]/c[3]*100}%"></i></div><div class="row between small muted"><span>${c[1]==="학급"?"현재 "+c[2]+"%":c[2]+" / "+c[3]+"회"}</span><span>10.31 마감 · +50 XP</span></div></div>`).join("")}</div>`;
+  }
+  if(k==="trophy"){
+    const t=[["아침 30회","10.02","#ffd166",1],["6주 연속","09.29","var(--data)",1],["반 챌린지 MVP","09.15","var(--court)",1],["첫 CHECK-IN","03.04","#d9e1f2",1],["아침 50회","잠김","var(--muted)",0],["시즌 GOLD","잠김","var(--muted)",0]];
+    return `<div class="stack">${subHead("TROPHY","배지와 트로피","PHASE 2")}<div class="trophies">${t.map(x=>`<div class="trophy ${x[3]?"":"lock"}">${IC.trophy(x[2])}<b>${x[0]}</b><span>${x[1]}</span></div>`).join("")}</div></div>`;
+  }
+  if(k==="history"){
+    return `<div class="stack">${subHead("HISTORY","활동 기록","")}<div class="card scroll"><table class="tbl"><thead><tr><th>날짜</th><th>프로그램</th><th>상태</th><th class="r">XP</th></tr></thead><tbody>
+      ${S.history.map(h=>`<tr><td class="num">${h.d}</td><td>${h.p}</td><td><span class="state st-${h.st}">${h.st}</span></td><td class="r num">${h.xp?"+"+h.xp:"0"}</td></tr>`).join("")}</tbody></table></div>
+      <p class="small muted" style="margin:0">FAILED는 CHECK-OUT을 하지 않고 세션이 끝난 기록이에요. MANUAL은 선생님이 직접 인정한 기록이에요.</p></div>`;
+  }
+  return `<div class="stack">${subHead("SETTINGS","설정","")}<div class="menu"><button><span class="k">비밀번호</span><span class="d">비밀번호 바꾸기</span><span class="muted">›</span></button><button><span class="k">개인정보</span><span class="d">학년·반·번호·이름과 운동 기록만 저장해요. 위치는 QR을 찍는 순간 거리만 확인하고 버려요.</span></button><button data-act="logout"><span class="k" style="color:var(--bad)">로그아웃</span><span class="d"></span></button></div></div>`;
+}
+function tabsBar(){
+  const active=S.att&&S.att.state==="ACTIVE";
+  const t=[["home","HOME",IC.home],["check","CHECK",IC.check],["my","MY SPORTS",IC.my],["rank","RANKING",IC.rank],["more","MORE",IC.more]];
+  return `<div class="tabs"><nav>${t.map(x=>`<button data-act="tab" data-v="${x[0]}" class="${S.tab===x[0]?"on":""}" aria-label="${x[1]}"><span class="check-dot ${x[0]==="check"&&active?"live":""}">${x[2]}${x[0]==="more"&&openCnt()?`<i class="tbadge num">${openCnt()}</i>`:""}</span>${x[1]}</button>`).join("")}</nav></div>`;
+}
+function vStudent(){
+  let v;
+  if(S.tab==="home") v=vHome();
+  else if(S.tab==="check") v=vCheck();
+  else if(S.tab==="my") v=vMy();
+  else if(S.tab==="rank") v=vRank();
+  else v=S.sub?vSub():vMore();
+  return `<div class="phone ${S.tab==="rank"&&S.rankMode==="class"?"wide":""}">${v}</div>${tabsBar()}`;
+}
+
+/* ---------- 미션 (선생님이 내고, 학생이 센서·자세 인식으로 제출) ---------- */
+const MKIND={
+  walk:{name:"걷기",unit:"보",how:"sensor",tip:"휴대폰을 손에 들거나 주머니에 넣고 걸어요. 다 걸을 때까지 앱 화면은 켜 둬요."},
+  squat:{name:"스쿼트",unit:"회",how:"pose",tip:"정면이나 옆으로 서서 머리부터 발끝까지 보이게 서 주세요."},
+  pushup:{name:"팔굽혀펴기",unit:"회",how:"pose",tip:"카메라 옆으로 엎드려 몸 전체가 보이게 해 주세요."},
+  lunge:{name:"런지",unit:"회",how:"pose",tip:"정면이나 옆으로 서서 발끝까지 보이게 서 주세요."},
+  jack:{name:"팔벌려뛰기",unit:"회",how:"pose",tip:"정면으로 서서 팔이 다 보이게 서 주세요."},
+  plank:{name:"플랭크",unit:"초",how:"pose",tip:"카메라 옆으로 엎드려 머리부터 발까지 보이게 해 주세요."}
+};
+const HOWLAB={sensor:"걸음 센서",pose:"자세 인식"};
+S.missions=[
+  {id:"m1",kind:"walk",goal:1000,xp:20,due:"10.10",to:"2학년 전체",cur:0,done:null},
+  {id:"m2",kind:"squat",goal:20,xp:15,due:"10.12",to:"2학년 3반",cur:0,done:null},
+  {id:"m3",kind:"plank",goal:30,xp:15,due:"10.14",to:"2학년 3반",cur:0,done:null}
+];
+const mById=id=>S.missions.find(m=>m.id===id);
+const mTitle=m=>`${MKIND[m.kind].name} ${m.goal.toLocaleString()}${MKIND[m.kind].unit}`;
+const hhmm=()=>{const d=new Date();return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");};
+
+function mCard(m,small){
+  const k=MKIND[m.kind],pct=Math.min(100,m.cur/m.goal*100);
+  return `<div class="card stack" style="gap:10px">
+    <div class="row between"><b style="font-size:16px">${mTitle(m)}</b><span class="chip">${HOWLAB[k.how]}</span></div>
+    ${m.done?`<div class="msg ok small">제출했어요 · ${m.done.v.toLocaleString()}${k.unit} · ${m.done.at} · +${m.xp} XP</div>`
+      :`<div class="bar teal"><i style="width:${pct}%"></i></div>
+    <div class="row between small muted"><span class="num">${m.cur.toLocaleString()} / ${m.goal.toLocaleString()}${k.unit}</span><span>${m.due} 마감 · ${esc(m.to)} · +${m.xp} XP</span></div>
+    ${small?"":`<button class="btn ${k.how==="sensor"?"teal":""}" data-act="mstart" data-v="${m.id}">${m.cur?"이어서 하기":"미션 시작"}</button>`}`}
+  </div>`;
+}
+function vMissions(){
+  const open=S.missions.filter(m=>!m.done),fin=S.missions.filter(m=>m.done);
+  return `<div class="stack">${subHead("MISSION","오늘의 미션","")}
+    <div class="msg info small" style="font-weight:500">선생님이 낸 오늘의 미션이에요. 걷기는 휴대폰 움직임 센서로, 맨몸 운동은 카메라 자세 인식으로 세요. 목표를 채우면 자동으로 제출돼요.</div>
+    ${open.map(m=>mCard(m)).join("")||'<div class="card muted">남은 미션이 없어요.</div>'}
+    ${fin.length?`<span class="eyebrow" style="margin-top:6px">제출한 미션</span>${fin.map(m=>mCard(m)).join("")}`:""}
+  </div>`;
+}
+const bell=n=>`<span class="bell" aria-label="새 미션 ${n}개"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.6L4.3 15.4A1 1 0 0 0 5.2 17h13.6a1 1 0 0 0 .9-1.6L18 12.6V9a6 6 0 0 0-6-6Z" fill="var(--gold)"/><path d="M9.5 18.5a2.5 2.5 0 0 0 5 0" fill="var(--gold)"/></svg><b class="num">${n}</b></span>`;
+const openCnt=()=>S.missions.filter(m=>!m.done).length;
+function homeMissions(){
+  const open=S.missions.filter(m=>!m.done).slice(0,2);
+  if(!open.length) return "";
+  return `<section class="stack"><div class="row between"><h3 class="row" style="font-size:17px;gap:10px">오늘의 미션 ${bell(openCnt())}</h3><button class="back" data-act="mlist">전체 보기 ›</button></div>
+    ${open.map(m=>`<button class="sess" data-act="mstart" data-v="${m.id}"><div class="tm num">${m.goal>=1000?(m.goal/1000)+"k":m.goal}<small>${MKIND[m.kind].unit}</small></div>
+      <div class="meta"><b>${mTitle(m)}</b><span class="small muted">${HOWLAB[MKIND[m.kind].how]} · ${m.due} 마감 · +${m.xp} XP${m.cur?` · ${m.cur.toLocaleString()}${MKIND[m.kind].unit} 했어요`:""}</span></div><span class="chip">시작 ›</span></button>`).join("")}</section>`;
+}
+
+/* 실행 화면 */
+function vMissionRun(){
+  const m=mById(S.mid),k=MKIND[m.kind];
+  const head=`${topline()}<button class="back" data-act="sub" data-v="mission">${IC.back} 오늘의 미션</button><div class="pagehead"><span class="eyebrow">MISSION · ${HOWLAB[k.how]}</span><h2>${mTitle(m)}</h2><p class="small muted" style="margin:0">${k.tip}</p></div>`;
+  if(m.done){
+    return `<div class="stack">${head}<div class="card xpburst"><span class="state st-COMPLETED">제출 완료</span><b class="num">+${m.xp}</b><div class="eyebrow" style="color:var(--fg)">XP 획득</div>
+      <p class="small muted">${m.done.v.toLocaleString()}${k.unit} · ${m.done.at}${m.done.secs?` · ${mmss(m.done.secs)}`:""} · 선생님 화면에 바로 올라갔어요</p>
+      <button class="btn ghost" data-act="sub" data-v="mission">다른 미션 보기</button></div></div>`;
+  }
+  const C=2*Math.PI*96,pct=Math.min(1,m.cur/m.goal);
+  if(k.how==="sensor"){
+    return `<div class="stack">${head}
+      <div class="card stack" style="align-items:center;text-align:center">
+        <div class="ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" stroke="var(--panel2)" stroke-width="14" fill="none"/><circle data-m="ring" cx="110" cy="110" r="96" stroke="var(--data)" stroke-width="14" fill="none" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-pct)}"/></svg>
+          <div class="in"><b class="num" data-m="cur">${m.cur.toLocaleString()}</b><span class="small muted">/ ${m.goal.toLocaleString()}보</span></div></div>
+        <div class="row" style="width:100%"><button class="btn teal" data-act="wgo" data-m="go">${m.cur?"이어서 걷기":"걷기 시작"}</button><button class="btn ghost" data-act="wstop" data-m="stop" disabled>멈춤</button></div>
+        <div class="msg info small" data-m="status" style="width:100%;font-weight:500">걷기 시작을 누르고 휴대폰을 들고 걸어요. 화면이 꺼지거나 다른 앱으로 넘어가면 세지 않아요.</div>
+      </div>
+      <section class="card stack" style="gap:8px"><span class="eyebrow">체험판 · 컴퓨터에서 볼 때</span><p class="small muted" style="margin:0">컴퓨터에는 움직임 센서가 없어서, 아래 버튼으로 걸은 것처럼 흉내 낼 수 있어요.</p>
+        <button class="btn sm ghost" data-act="mdemo" data-v="100">100보 걸은 것처럼 하기</button></section>
+      <p class="small muted" style="margin:0">걸음은 이 휴대폰 안에서만 세고, 걸음 수와 걸린 시간만 선생님께 보내요. 너무 빠르게 흔들면 걸음으로 세지 않아요.</p>
+    </div>`;
+  }
+  return `<div class="stack">${head}
+    <div class="stage"><video id="mcam" playsinline muted></video><canvas id="mov"></canvas>
+      <div class="ph" id="mph">카메라를 켜면 자세를 인식해서 횟수를 세요.<br>${k.tip}</div>
+      <div class="hud"><b class="num" data-m="cur">${m.cur}</b><small>/ ${m.goal}${k.unit}</small></div>
+      <div class="cue" id="mcue" hidden></div></div>
+    <div class="row"><button class="btn" data-act="mcam">카메라 켜기</button><label class="btn ghost" for="mvid">영상으로 하기</label><input id="mvid" type="file" accept="video/*" hidden></div>
+    <div class="msg info small" data-m="status" style="font-weight:500">AI 모델은 이 기기 안에서만 돌아가요. 영상은 어디에도 올라가지 않아요.</div>
+    <section class="card stack" style="gap:8px"><span class="eyebrow">체험판 · 카메라 없이 볼 때</span>
+      <button class="btn sm ghost" data-act="mdemo" data-v="5">5${k.unit} 한 것처럼 하기</button></section>
+  </div>`;
+}
+const $m=s=>document.querySelector(`[data-m="${s}"]`);
+function mStatus(t,k){const el=$m("status");if(el){el.textContent=t;el.className="msg small "+(k||"info");el.style.fontWeight="500";}}
+function mAdd(n){
+  const m=mById(S.mid); if(!m||m.done) return;
+  m.cur=Math.min(m.goal,m.cur+n);
+  const c=$m("cur"); if(c) c.textContent=m.cur.toLocaleString();
+  const r=$m("ring"); if(r){const C=2*Math.PI*96;r.setAttribute("stroke-dashoffset",C*(1-m.cur/m.goal));}
+  if(m.cur>=m.goal) mFinish(m);
+}
+function mFinish(m){
+  const secs=W.start?Math.round(W.elapsed+(W.on?(performance.now()-W.start)/1000:0)):0;
+  mStopAll();
+  m.done={v:m.cur,at:"10.08 "+hhmm(),how:MKIND[m.kind].how,secs:m.kind==="walk"?secs:0};
+  S.xp+=m.xp; S.history.unshift({d:"10.08",p:"미션 · "+mTitle(m),st:"COMPLETED",xp:m.xp});
+  say("미션 완료! 잘했어요");
+  render(); window.scrollTo(0,0); toast("미션을 제출했어요 +"+m.xp+" XP");
+}
+
+/* 걸음 센서: 가속도 크기에서 걸음 리듬의 봉우리를 센다 */
+const W={on:false,got:false,ema:9.8,f:null,above:false,last:0,recent:[],wake:null,start:0,elapsed:0,shakeT:0};
+async function walkStart(){
+  if(W.on) return;
+  if(typeof DeviceMotionEvent==="undefined"){mStatus("이 기기에서는 움직임 센서를 쓸 수 없어요. 휴대폰으로 열어 주세요.","bad");return;}
+  if(typeof DeviceMotionEvent.requestPermission==="function"){
+    try{const r=await DeviceMotionEvent.requestPermission(); if(r!=="granted"){mStatus("동작 센서 사용을 허용해야 걸음을 셀 수 있어요.","bad");return;}}
+    catch{mStatus("동작 센서 권한을 받지 못했어요. 브라우저 설정에서 동작 및 방향 접근을 켜 주세요.","bad");return;}
+  }
+  W.on=true; W.got=false; W.f=null; W.above=false; W.recent=[]; W.start=performance.now();
+  window.addEventListener("devicemotion",onMotion);
+  try{ if(navigator.wakeLock) W.wake=await navigator.wakeLock.request("screen"); }catch{}
+  const g=$m("go"),s=$m("stop"); if(g) g.disabled=true; if(s) s.disabled=false;
+  mStatus("걸음을 세는 중이에요. 화면을 켜 둔 채로 걸어요.","ok");
+  setTimeout(()=>{ if(W.on&&!W.got) mStatus("센서 신호가 들어오지 않아요. 휴대폰 브라우저(크롬·사파리)에서 열었는지 확인해 주세요.","bad"); },3000);
+}
+function walkStop(msg){
+  if(!W.on) return;
+  window.removeEventListener("devicemotion",onMotion);
+  W.elapsed+=(performance.now()-W.start)/1000; W.on=false;
+  try{ W.wake&&W.wake.release(); }catch{} W.wake=null;
+  const g=$m("go"),s=$m("stop"); if(g){g.disabled=false;g.textContent="이어서 걷기";} if(s) s.disabled=true;
+  if(msg) mStatus(msg,"info");
+}
+function onMotion(e){
+  const a=e.accelerationIncludingGravity; if(!a||a.x==null) return;
+  if(!W.got){W.got=true;}
+  const mag=Math.hypot(a.x,a.y,a.z), t=performance.now();
+  W.f=W.f==null?mag:W.f*0.6+mag*0.4;     // 잔떨림 줄이기
+  W.ema+=(W.f-W.ema)*0.04;                // 중력 기준선
+  const d=W.f-W.ema;
+  if(!W.above&&d>1.2){
+    W.above=true;
+    if(t-W.last>280){
+      W.recent=W.recent.filter(x=>t-x<3000);
+      if(W.recent.length<11){W.last=t;W.recent.push(t);mAdd(1);}
+      else if(t-W.shakeT>2500){W.shakeT=t;mStatus("너무 빨라요. 흔든 건 걸음으로 세지 않아요.","bad");setTimeout(()=>{if(W.on)mStatus("걸음을 세는 중이에요. 화면을 켜 둔 채로 걸어요.","ok");},2500);}
+    }
+  } else if(W.above&&d<0.3) W.above=false;
+}
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden&&W.on) walkStop("화면이 꺼져서 멈췄어요. 이어서 걷기를 누르면 다시 세요.");
+  if(!document.hidden&&W.on===false&&W.wake===null&&S.sub==="mrun"){}
+});
+
+/* 자세 인식 (예전 체험판의 카운터를 그대로 옮김, MediaPipe Pose) */
+const ang=(a,b,c)=>{const r=Math.atan2(c.y-b.y,c.x-b.x)-Math.atan2(a.y-b.y,a.x-b.x);const d=Math.abs(r*180/Math.PI);return d>180?360-d:d;};
+const clamp01=x=>Math.max(0,Math.min(1,x));
+const LS={sh:11,el:13,wr:15,hip:23,kn:25,an:27}, RS={sh:12,el:14,wr:16,hip:24,kn:26,an:28}, VIS=.5;
+function makeCounter(kind){
+  const c={kind,reps:0,secs:0,phase:"up",depth:0,cue:"준비 자세를 잡아 주세요",good:true,last:0,top:0,hintUntil:0,minSeen:1};
+  const hint=(t,msg)=>{c.cue=msg;c.good=false;c.hintUntil=t+1500;};
+  c.step=(lm,t,aspect=1)=>{
+    const P=i=>({x:lm[i].x*aspect,y:lm[i].y});
+    const seen=ids=>ids.every(i=>(lm[i].visibility??1)>VIS);
+    const sideOk=Q=>seen([Q.hip,Q.kn,Q.an]);
+    const keepHint=t<c.hintUntil;
+    if(kind==="squat"||kind==="lunge"){
+      const legs=[LS,RS].filter(sideOk);
+      if(!legs.length){c.cue="다리까지 다 보이게 카메라에서 조금 멀어져 주세요";c.good=false;return;}
+      const per=legs.map(Q=>{const h=P(Q.hip),k=P(Q.kn),a=P(Q.an);return {r:(k.y-h.y)/Math.max(.02,a.y-k.y),knee:ang(h,k,a)};});
+      const r=Math.min(...per.map(x=>x.r)),knee=Math.min(...per.map(x=>x.knee));
+      const downR=kind==="squat"?.45:.5,upR=.75;
+      c.depth=clamp01((1-r)/(1-downR));
+      if(c.phase==="up"){c.minSeen=Math.min(c.minSeen,r);
+        if(r<downR||knee<105){c.phase="down";c.minSeen=1;}
+        else if(r>.9&&c.minSeen<.8){hint(t,kind==="squat"?"조금 더 깊이 앉아요 (허벅지가 바닥과 나란히)":"무릎을 90도까지 굽혀요");c.minSeen=1;}
+      } else if(r>upR&&knee>150){c.phase="up";c.reps++;}
+      if(keepHint) return;
+      c.cue=c.phase==="down"?"좋아요! 이제 일어나요":kind==="squat"?"천천히 앉아요":"한 발 앞으로, 무릎을 굽혀요";c.good=true;
+    } else if(kind==="pushup"){
+      const arms=[LS,RS].filter(Q=>seen([Q.sh,Q.wr]));
+      if(!arms.length){c.cue="어깨와 손이 화면에 보이게 해 주세요";c.good=false;return;}
+      const h=arms.reduce((s,Q)=>s+(P(Q.wr).y-P(Q.sh).y),0)/arms.length;
+      const els=arms.filter(Q=>seen([Q.el])).map(Q=>ang(P(Q.sh),P(Q.el),P(Q.wr)));
+      const elbow=els.length?Math.min(...els):180;
+      if(c.phase==="up") c.top=Math.max(c.top*.997,h);
+      const ratio=c.top>.02?h/c.top:1;
+      c.depth=clamp01((1-ratio)/.4);
+      const side=!seen([11,12])||Math.abs(P(11).x-P(12).x)<.08;
+      if(c.phase==="up"&&c.top>.05&&(ratio<.6||side&&elbow<95)) c.phase="down";
+      else if(c.phase==="down"&&ratio>.85&&(!side||elbow>140)){c.phase="up";c.reps++;}
+      if(keepHint) return;
+      const Q=arms[0];
+      const lineOk=!seen([Q.hip,Q.an])||Math.abs(P(Q.sh).x-P(Q.an).x)<.3||ang(P(Q.sh),P(Q.hip),P(Q.an))>150;
+      c.cue=!lineOk?"허리가 처지거나 솟았어요. 몸을 일자로!":c.phase==="down"?"좋아요! 밀어 올려요":"가슴을 바닥 가까이 내려요"; c.good=lineOk;
+    } else if(kind==="jack"){
+      if(!seen([11,12,15,16])){c.cue="팔이 다 보이게 카메라에서 조금 멀어져 주세요";c.good=false;return;}
+      const torso=seen([23,24])?Math.abs((P(23).y+P(24).y)/2-(P(11).y+P(12).y)/2):.25;
+      const up=P(15).y<P(11).y&&P(16).y<P(12).y, down=P(15).y>P(11).y+torso*.4&&P(16).y>P(12).y+torso*.4;
+      if(c.phase==="up"&&up) c.phase="down"; else if(c.phase==="down"&&down){c.phase="up";c.reps++;}
+      c.cue="리듬 좋아요! 팔을 머리 위까지!";c.good=true;
+    } else if(kind==="plank"){
+      const Q=[LS,RS].filter(X=>seen([X.sh,X.hip,X.an])).sort((a,b)=>lm[b.hip].visibility-lm[a.hip].visibility)[0];
+      if(!Q){c.cue="옆으로 엎드려 머리부터 발끝까지 보이게 해 주세요";c.good=false;c.last=0;return;}
+      const sh=P(Q.sh),hip=P(Q.hip),an=P(Q.an),line=ang(sh,hip,an);
+      const flat=Math.abs(sh.y-an.y)<.6*Math.abs(sh.x-an.x), ok=flat&&line>150;
+      if(ok&&c.last) c.secs+=Math.min(.5,(t-c.last)/1000);
+      c.last=t; c.reps=Math.floor(c.secs);
+      c.cue=!flat?"엎드려서 팔꿈치로 버텨요. 카메라는 옆에서 찍어요":line<=150?(hip.y<(sh.y+an.y)/2?"엉덩이를 조금 내려요":"엉덩이가 처졌어요. 배에 힘!"):"완벽해요! 그대로 버텨요";
+      c.good=ok;
+    }
+  };
+  return c;
+}
+const PZ={lm:null,loading:null,raf:0,stream:null,counter:null,base:0};
+async function loadPose(){
+  if(PZ.lm) return PZ.lm; if(PZ.loading) return PZ.loading;
+  mStatus("AI 모델을 불러오는 중이에요. 처음 한 번은 10초쯤 걸려요.");
+  PZ.loading=(async()=>{
+    const V="0.10.21";
+    const {PoseLandmarker}=await import(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${V}/vision_bundle.mjs`);
+    const base=new URL("./",location.href).href;
+    const fileset={wasmLoaderPath:`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${V}/wasm/vision_wasm_internal.js`,wasmBinaryPath:base+"models/vision_wasm_internal.wasm"};
+    const b64=await (await fetch(base+"models/pose_landmarker_lite.b64.txt")).text();
+    const bin=atob(b64.trim()),model=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) model[i]=bin.charCodeAt(i);
+    const o=d=>({baseOptions:{modelAssetBuffer:model,delegate:d},runningMode:"VIDEO",numPoses:1});
+    try{PZ.lm=await PoseLandmarker.createFromOptions(fileset,o("GPU"));}catch{PZ.lm=await PoseLandmarker.createFromOptions(fileset,o("CPU"));}
+    return PZ.lm;
+  })();
+  try{return await PZ.loading;}catch(e){PZ.loading=null;throw e;}
+}
+const BONES=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
+function drawPose(lm,ctx,w,h,good){
+  ctx.clearRect(0,0,w,h); if(!lm) return;
+  ctx.lineWidth=Math.max(3,w/120); ctx.strokeStyle=good?"#4ade80":"#ff7a2f"; ctx.lineCap="round";
+  for(const [a,b] of BONES){ctx.beginPath();ctx.moveTo(lm[a].x*w,lm[a].y*h);ctx.lineTo(lm[b].x*w,lm[b].y*h);ctx.stroke();}
+  ctx.fillStyle="#fff"; for(const i of [11,12,13,14,15,16,23,24,25,26,27,28]){ctx.beginPath();ctx.arc(lm[i].x*w,lm[i].y*h,ctx.lineWidth,0,7);ctx.fill();}
+}
+const KO=["","하나","둘","셋","넷","다섯","여섯","일곱","여덟","아홉","열"];
+function say(n){ if(!window.speechSynthesis) return; try{const u=new SpeechSynthesisUtterance(typeof n==="string"?n:n<=10?KO[n]:String(n));u.lang="ko-KR";u.rate=1.2;speechSynthesis.cancel();speechSynthesis.speak(u);}catch{} }
+async function poseBegin(video,mirror){
+  const m=mById(S.mid);
+  try{await loadPose();}catch(e){mStatus("AI 모델을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.","bad");console.error(e);return;}
+  if(S.sub!=="mrun"||!document.getElementById("mov")) return;
+  mStatus(MKIND[m.kind].tip);
+  PZ.counter=makeCounter(m.kind); PZ.base=m.cur;
+  const cv=document.getElementById("mov"),ctx=cv.getContext("2d");
+  video.classList.toggle("mirror",mirror); cv.classList.toggle("mirror",mirror);
+  document.getElementById("mph").hidden=true; const cue=document.getElementById("mcue"); cue.hidden=false;
+  let shown=0,lastT=-1;
+  const loop=()=>{
+    if(!PZ.counter) return;
+    if(video.readyState>=2&&video.currentTime!==lastT){
+      lastT=video.currentTime; cv.width=video.videoWidth; cv.height=video.videoHeight;
+      const t=performance.now(), res=PZ.lm.detectForVideo(video,t), lm=res.landmarks&&res.landmarks[0];
+      if(lm) PZ.counter.step(lm,t,video.videoWidth/video.videoHeight); else {PZ.counter.cue="몸이 화면에 다 보이게 해 주세요";PZ.counter.good=false;PZ.counter.last=0;}
+      drawPose(lm,ctx,cv.width,cv.height,PZ.counter.good);
+      cue.textContent=PZ.counter.cue; cue.className="cue "+(PZ.counter.good?"good":"fix");
+      const reps=PZ.counter.reps;
+      if(reps!==shown){const add=reps-shown;shown=reps;if(m.kind!=="plank"||reps%10===0)say(PZ.base+reps);mAdd(add);if(m.done)return;}
+    }
+    PZ.raf=requestAnimationFrame(loop);
+  };
+  loop();
+}
+async function poseCamera(){
+  poseStop(); const video=document.getElementById("mcam");
+  try{PZ.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:640,height:480},audio:false});}
+  catch{mStatus("카메라를 쓸 수 없어요. 카메라 권한을 허용했는지 확인하거나, '영상으로 하기'로 찍어 둔 영상을 골라 주세요.","bad");return;}
+  video.srcObject=PZ.stream; await video.play().catch(()=>{}); poseBegin(video,true);
+}
+async function poseVideo(file){
+  poseStop(); const video=document.getElementById("mcam");
+  video.srcObject=null; video.src=URL.createObjectURL(file); await video.play().catch(()=>{}); poseBegin(video,false);
+}
+function poseStop(){ cancelAnimationFrame(PZ.raf); PZ.counter=null; if(PZ.stream){PZ.stream.getTracks().forEach(t=>t.stop());PZ.stream=null;} const v=document.getElementById("mcam"); if(v) v.pause(); }
+function mStopAll(){ walkStop(); poseStop(); }
+document.addEventListener("change",e=>{ if(e.target.id==="mvid"&&e.target.files[0]) poseVideo(e.target.files[0]); if(e.target.id==="mk"){const g=document.getElementById("mg");if(g)g.value={walk:1000,squat:20,pushup:10,lunge:20,jack:30,plank:30}[e.target.value];} });
+
+/* 선생님: 미션 내기와 제출 현황 */
+function mSubs(m){
+  const mi=+m.id.replace(/\D/g,"")||1;
+  return NAMES.map((n,i)=>{
+    if(i===ME_IDX) return {n,i,me:true,done:m.done,cur:m.cur};
+    if((i*7+mi*3)%5===0) return {n,i,done:null,cur:Math.round(m.goal*((i*13)%7)/10)};
+    const v=m.goal+((i*37)%(m.kind==="walk"?260:4));
+    if(m.kind!=="walk") return {n,i,done:{v,at:"10.0"+(7+i%2)+" "+String(7+(i%10)).padStart(2,"0")+":"+String((i*11)%60).padStart(2,"0")}};
+    const cad=i===8?184:96+((i*13)%34);   // 분당 걸음
+    return {n,i,done:{v,at:"10.0"+(7+i%2)+" "+String(7+(i%10)).padStart(2,"0")+":"+String((i*11)%60).padStart(2,"0"),secs:Math.round(v/cad*60)}};
+  });
+}
+function aMission(){
+  const sel=S.mview&&mById(S.mview);
+  const kinds=Object.entries(MKIND).map(([k,v])=>`<option value="${k}">${v.name} · ${HOWLAB[v.how]}</option>`).join("");
+  const rows=S.missions.map(m=>{const s=mSubs(m),d=s.filter(x=>x.done).length;return `<tr><td><b>${mTitle(m)}</b></td><td>${esc(m.to)}</td><td class="num">${m.due}</td><td><span class="chip">${HOWLAB[MKIND[m.kind].how]}</span></td><td class="r num">${d} / ${s.length}</td><td class="r num">+${m.xp}</td><td class="r"><button class="btn sm ghost" data-act="mview" data-v="${m.id}">${S.mview===m.id?"닫기":"제출 보기"}</button></td></tr>`;}).join("");
+  let detail="";
+  if(sel){
+    const k=MKIND[sel.kind],walk=sel.kind==="walk";
+    detail=`<div class="card scroll" style="padding:6px 10px;margin-top:14px"><div class="row between" style="padding:10px 4px"><b>${mTitle(sel)} · 2학년 3반 제출 현황</b>${walk?'<span class="small muted">분당 걸음이 150보를 넘으면 흔들기 의심으로 표시해요</span>':""}</div>
+      <table class="tbl"><thead><tr><th>번호</th><th>이름</th><th>상태</th><th class="r">기록</th>${walk?'<th class="r">걸린 시간</th><th class="r">분당 걸음</th>':""}<th>제출 시각</th><th class="r">확인</th></tr></thead><tbody>
+      ${mSubs(sel).map(s=>{const cad=walk&&s.done&&s.done.secs?Math.round(s.done.v/(s.done.secs/60)):0,sus=cad>150;
+        return `<tr${s.me?' style="background:rgba(255,122,47,.08)"':""}><td class="num">${s.i+1}</td><td>${s.n}${s.me?' <span class="chip">체험 중</span>':""}</td>
+        <td>${s.done?'<span class="state st-COMPLETED">제출</span>':s.cur?'<span class="state st-ACTIVE">하는 중</span>':'<span class="state st-WAITING">안 함</span>'}</td>
+        <td class="r num">${s.done?s.done.v.toLocaleString()+k.unit:s.cur?s.cur.toLocaleString()+k.unit:"–"}</td>
+        ${walk?`<td class="r num">${s.done&&s.done.secs?mmss(s.done.secs):"–"}</td><td class="r num" style="${sus?"color:var(--bad);font-weight:700":""}">${cad||"–"}</td>`:""}
+        <td class="num muted">${s.done?s.done.at:"–"}</td><td class="r">${sus?'<span class="state st-FAILED">확인 필요</span>':s.done?'<span class="muted small">자동 인정</span>':""}</td></tr>`;}).join("")}
+      </tbody></table></div>`;
+  }
+  return `<div class="ahead"><div><span class="eyebrow">미션을 내면 대상 학생의 홈 화면과 더보기 → 미션에 바로 떠요</span><h1>미션</h1></div></div>
+    <section class="card" style="margin-bottom:14px"><span class="eyebrow">새 미션 내기</span>
+      <div class="mform">
+        <div class="field"><label for="mk">종류</label><select id="mk">${kinds}</select></div>
+        <div class="field"><label for="mg">목표</label><input id="mg" type="number" min="1" value="1000"></div>
+        <div class="field"><label for="mt">대상</label><select id="mt"><option>2학년 전체</option><option>2학년 3반</option><option>1학년 전체</option><option>3학년 전체</option><option>전교생</option></select></div>
+        <div class="field"><label for="md">마감</label><input id="md" type="date" value="2026-10-15"></div>
+        <div class="field"><label for="mx">XP</label><input id="mx" type="number" min="0" max="100" value="20"></div>
+        <button class="btn" data-act="madd" style="align-self:end">미션 내기</button>
+      </div>
+      <p class="small muted" style="margin:10px 0 0">걷기는 학생 휴대폰의 움직임 센서로, 나머지는 카메라 자세 인식으로 세요. 목표를 채우면 자동으로 제출되고 XP가 들어가요.</p></section>
+    <div class="card scroll" style="padding:6px 10px"><table class="tbl"><thead><tr><th>미션</th><th>대상</th><th>마감</th><th>방식</th><th class="r">제출</th><th class="r">XP</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${detail}`;
+}
+function mAddFromForm(){
+  const kind=document.getElementById("mk").value,goal=Math.max(1,Math.round(+document.getElementById("mg").value||0));
+  const to=document.getElementById("mt").value,due=(document.getElementById("md").value||"2026-10-15").slice(5).replace("-","."),xp=Math.max(0,Math.min(100,Math.round(+document.getElementById("mx").value||0)));
+  const id="m"+(S.missions.length+1)+"x"+Date.now()%1000;
+  S.missions.unshift({id,kind,goal,xp,due,to,cur:0,done:null});
+  S.mview=id; render(); toast("미션을 냈어요. 학생 화면 홈과 더보기 → 미션에 떠요.");
+}
+
+/* ---------- admin views ---------- */
+const AMENU=[["dash","DASHBOARD",""],["live","LIVE 출석",""],["qr","QR 화면",""],["race","학급 레이스 (TV)",""],["mission","미션",""],["sessions","QR 출석 세션",""],["students","학생",""],["classes","학급",""],["programs","운동 프로그램",""],["xp","XP",""],["settings","설정",""],["pops","POPS","P3"],["season","시즌","P2"],["challenge","챌린지","P2"],["badge","배지/트로피","P2"],["stats","통계","P4"]];
+function vAdminLogin(){
+  return `<div class="login"><div class="loginphoto" style="background-image:url(${PHOTO})"><div>TEACHER<br>CONSOLE</div></div>
+    <form id="aLoginForm" class="stack"><div class="field"><label for="aemail">교사 이메일</label><input id="aemail" value="pe.teacher@nongso.example"></div><div class="field"><label for="apw">비밀번호</label><input id="apw" type="password" value="demo-pass"></div><button class="btn" type="submit">관리자 로그인</button>
+    <p class="small muted" style="margin:0">교사 계정만 들어올 수 있어요. 학생 계정으로 로그인하면 이 화면이 열리지 않아요.</p></form></div>`;
+}
+function liveRows(){
+  initLive();
+  return S.live.map(s=>s.me?Object.assign({n:s.n,i:s.i,me:true},meRow()):s);
+}
+function aDash(){
+  const r=liveRows(),c=k=>r.filter(x=>x.state===k).length;
+  const cls=[["1반",84],["2반",72],["3반",88],["4반",52],["5반",92],["6반",44],["7반",76],["8반",60]];
+  const week=[["월",61],["화",68],["수",64],["목",72],["금",70]];
+  return `<div class="ahead"><div><span class="eyebrow">2026.10.08 목요일</span><h1>DASHBOARD</h1></div><button class="btn sm" data-act="aview" data-v="live">LIVE 출석 열기</button></div>
+    <div class="kpis"><div class="kpi"><span>지금 열린 세션</span><b class="num">2</b><span>아침 운동 · 체험 테스트</span></div><div class="kpi"><span>오늘 완료</span><b class="num" style="color:var(--good)">${c("COMPLETED")+c("MANUAL")+118}</b><span>2학년 전체</span></div><div class="kpi"><span>활동 중</span><b class="num" style="color:var(--data)">${c("ACTIVE")+9}</b><span>CHECK-OUT 전</span></div><div class="kpi"><span>확인 필요</span><b class="num" style="color:var(--bad)">${S.alerts.length}</b><span>부정 시도 의심</span></div></div>
+    <div class="grid2"><div class="card"><div class="row between"><span class="eyebrow">이번 달 학급별 참여율</span><span class="small muted">2학년</span></div><div style="margin-top:10px">${cls.map(x=>`<div class="hbar"><span>${x[0]}</span><div class="bar teal"><i style="width:${x[1]}%"></i></div><span class="num r" style="text-align:right">${x[1]}%</span></div>`).join("")}</div></div>
+    <div class="card"><span class="eyebrow">이번 주 일별 참여율</span><svg viewBox="0 0 300 170" role="img" aria-label="이번 주 일별 참여율" style="width:100%;margin-top:10px">
+      ${[0,25,50,75].map(v=>`<line x1="28" x2="292" y1="${140-v*1.4}" y2="${140-v*1.4}" stroke="var(--line)"/><text x="22" y="${144-v*1.4}" text-anchor="end" font-size="11" fill="var(--muted)">${v}</text>`).join("")}
+      ${week.map((w,i)=>{const x=46+i*56,h=w[1]*1.4;return `<rect x="${x}" y="${140-h}" width="32" height="${h}" rx="4" fill="${i===3?"var(--court)":"var(--panel2)"}" stroke="${i===3?"var(--court)":"var(--line)"}"/><text x="${x+16}" y="${134-h}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)" font-family="Saira Condensed">${w[1]}%</text><text x="${x+16}" y="160" text-anchor="middle" font-size="12" fill="var(--muted)">${w[0]}</text>`}).join("")}
+    </svg></div></div>`;
+}
+function aLive(){
+  const r=liveRows(),c=k=>r.filter(x=>x.state===k).length,min=prog("test").min;
+  return `<div class="ahead"><div><span class="eyebrow">LIVE · 2학년 3반 · 체험 테스트 (최소 20초)</span><h1>LIVE 출석</h1></div>
+    <div class="row">${S.sessionOpen?`<button class="btn sm ghost" data-act="aview" data-v="qr">QR 화면 띄우기</button><button class="btn sm" data-act="close">세션 닫기</button>`:`<span class="chip">세션 닫힘</span><button class="btn sm teal" data-act="reopen">다시 열기</button>`}</div></div>
+    <div class="livehead">${["WAITING","ACTIVE","COMPLETED","FAILED","MANUAL"].map(k=>`<div class="count"><span class="state st-${k}">${k}</span><b class="num">${c(k)}</b></div>`).join("")}</div>
+    ${S.alerts.map(a=>`<div class="alert"><span class="num muted">${a.t}</span><span>${a.text}</span></div>`).join("")}
+    <div class="card scroll" style="padding:6px 10px"><table class="tbl"><thead><tr><th>번호</th><th>이름</th><th>상태</th><th class="r">경과</th><th class="r">처리</th></tr></thead><tbody>
+    ${r.map(s=>{const el=s.state==="ACTIVE"?(now()-s.inAt)/1000:null;return `<tr${s.me?' style="background:rgba(255,122,47,.08)"':""}><td class="num">${s.i+1}</td><td>${s.n}${s.me?' <span class="chip">체험 중인 학생</span>':""}</td><td><span class="state st-${s.state}">${s.state}</span></td><td class="r num">${el!=null?(el>=min?'<span style="color:var(--good)">'+clock(el)+'</span>':clock(el)):"–"}</td><td class="r">${(s.state==="WAITING"||s.state==="FAILED")&&!s.me?`<button class="btn sm ghost" data-act="manual" data-v="${s.i}">수동 승인</button>`:""}</td></tr>`}).join("")}
+    </tbody></table></div>
+    <p class="small muted">학생 화면에서 체험한 김하준(12번)의 상태가 이 표에 바로 나타나요. 실제 앱에서는 Supabase Realtime으로 갱신돼요.</p>`;
+}
+let qrDrawn="";
+function aQr(){
+  const w=qrWindow(),left=QR_INT-(now()/1000%QR_INT),tk=token(S.qrMode,w),inMode=S.qrMode==="in";
+  return `<div class="ahead"><div><span class="eyebrow">체험 테스트 · TV에 전체화면으로 띄우는 화면</span><h1>QR 화면</h1></div></div>
+    <div class="qrstage"><div class="qrbig ${S.qrMode}"><div class="mode" style="color:${inMode?"var(--good)":"var(--court)"}">${inMode?"CHECK-IN":"CHECK-OUT"}</div>
+      <div class="qrbox" id="qrbox" aria-label="동적 QR 코드"></div>
+      <div class="qrtimer"><div class="row between small"><span class="muted">다음 QR까지</span><b class="num" data-live="qrleft">${Math.ceil(left)}초</b></div><div class="bar ${inMode?"teal":""}" style="margin-top:6px"><i data-live="qrbar" style="width:${left/QR_INT*100}%;transition:none"></i></div></div>
+      <div class="num muted" style="letter-spacing:.2em">CODE ${tk}</div></div>
+    <div class="stack"><div class="toggle"><button data-act="qrmode" data-v="in" class="in ${inMode?"on":""}">CHECK-IN</button><button data-act="qrmode" data-v="out" class="out ${inMode?"":"on"}">CHECK-OUT</button></div>
+      <div class="card stack small" style="gap:8px"><b>이 QR이 대리 출석을 막는 방법</b><span class="muted">30초마다 새 코드로 바뀌고, 서버는 지금과 바로 전 코드만 받아요.</span><span class="muted">CHECK-IN과 CHECK-OUT 코드가 달라서 한 장으로 둘 다 할 수 없어요.</span><span class="muted">세션을 닫으면 모든 코드가 즉시 무효가 돼요.</span></div>
+      <p class="small muted" style="margin:0">체험판 QR은 모양만 실제와 같고, 휴대폰으로 찍어도 아무 일도 일어나지 않아요.</p></div></div>`;
+}
+function drawQr(){
+  const box=document.getElementById("qrbox"); if(!box) return;
+  const key=S.qrMode+qrWindow(); if(qrDrawn===key && box.childElementCount) return;
+  qrDrawn=key; box.innerHTML="";
+  const text="NONGSO-DEMO|"+S.qrMode.toUpperCase()+"|"+token(S.qrMode,qrWindow());
+  try{ new QRCode(box,{text,width:288,height:288,colorDark:"#0d1430",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M}); }
+  catch(e){ box.innerHTML='<div style="color:#0d1430;font-weight:700;text-align:center">'+esc(text)+'</div>'; }
+}
+function aStudents(){
+  return `<div class="ahead"><div><span class="eyebrow">2학년 3반 · 25명</span><h1>학생</h1></div><div class="row"><button class="btn sm" data-act="noop">명단 CSV 올리기</button></div></div>
+    <div class="msg info small" style="font-weight:500;margin-bottom:12px">명단은 학년·반·번호·이름 4열만 받아요. 학생은 이름과 학번으로 직접 가입하고, 남이 먼저 가입했으면 여기서 초기화해요.</div>
+    <div class="card scroll" style="padding:6px 10px"><table class="tbl"><thead><tr><th>번호</th><th>이름</th><th>SPORTS ID</th><th>계정</th><th>가입 시각</th><th class="r">레벨</th><th class="r">비밀번호</th></tr></thead><tbody>
+    ${NAMES.map((n,i)=>{const act=i%6!==4&&!S.issued[i];return `<tr><td class="num">${i+1}</td><td>${n}</td><td class="num muted">NS-2027-${String(120+i).padStart(4,"0")}</td><td>${act?'<span class="state st-COMPLETED">활성</span>':'<span class="state st-WAITING">미가입</span>'}</td><td class="num muted">${act?"03."+String(4+(i%3)).padStart(2,"0")+" 09:"+String(10+i).padStart(2,"0"):"–"}</td><td class="r num">${i===ME_IDX?levelOf(S.xp).lv:4+((i*7)%9)}</td><td class="r">${act?`<button class="btn sm ghost" data-act="issue" data-v="${i}">초기화</button>`:'<span class="muted small">학생이 처음 설정</span>'}</td></tr>`}).join("")}
+    </tbody></table></div>`;
+}
+function aPrograms(){
+  return `<div class="ahead"><div><span class="eyebrow">CHECK-IN 후 최소 시간이 지나야 CHECK-OUT 할 수 있어요</span><h1>운동 프로그램</h1></div><button class="btn sm" data-act="noop">프로그램 추가</button></div>
+    <div class="card scroll" style="padding:6px 10px"><table class="tbl"><thead><tr><th>프로그램</th><th class="r">최소 시간</th><th class="r">XP</th><th>위치 인증</th><th>하루 제한</th></tr></thead><tbody>
+    ${PROGRAMS.map(p=>`<tr><td><b>${p.name}</b></td><td class="r num">${mmss(p.min)}</td><td class="r num">+${p.xp}</td><td>${p.geo?"켜짐 · 체육관 반경 80m":"꺼짐"}</td><td>${p.id==="special"?"세션마다":"1회"}</td></tr>`).join("")}
+    </tbody></table></div><p class="small muted">기획서의 테스트 3분 대신, 체험판에서는 20초짜리 체험 테스트를 넣었어요.</p>`;
+}
+function aPops(){
+  const items=["왕복오래달리기(회)","50m(초)","앉아윗몸(cm)","멀리뛰기(cm)","악력(kg)"];
+  return `<div class="ahead"><div><span class="eyebrow">2027학년도 · 2학년 3반 · 일괄 입력</span><h1>POPS</h1></div><div class="row"><span class="ph-note">PHASE 3에서 만들어요</span><button class="btn sm ghost" data-act="noop">나이스 파일 가져오기</button><button class="btn sm" data-act="popsave">저장</button></div></div>
+    <div class="card scroll popsgrid" style="padding:6px 10px"><table class="tbl"><thead><tr><th>번호</th><th>이름</th>${items.map(x=>`<th class="r">${x}</th>`).join("")}</tr></thead><tbody>
+    ${NAMES.slice(0,10).map((n,i)=>`<tr><td class="num">${i+1}</td><td>${n}</td>${items.map((_,j)=>{const v=[40+((i*13)%25),(8+((i*7)%15)/10).toFixed(1),(3+(i*5)%12).toFixed(1),170+(i*11)%40,(20+(i*3)%11).toFixed(1)][j];return `<td class="r"><input id="pops-${i}-${j}" aria-label="${n} ${items[j]}" value="${v}"></td>`}).join("")}</tr>`).join("")}
+    </tbody></table></div><p class="small muted">엑셀처럼 칸을 옮겨 다니며 입력해요. 이 기록은 학생 본인과 담당 선생님만 볼 수 있어요.</p>`;
+}
+function aSimple(k){
+  const m={
+    sessions:["QR 출석 세션","오늘 열린 세션과 지난 기록",`<table class="tbl"><thead><tr><th>날짜</th><th>프로그램</th><th>대상</th><th class="r">완료</th><th>상태</th></tr></thead><tbody><tr><td class="num">10.08</td><td>체험 테스트</td><td>2-3</td><td class="r num">–</td><td><span class="state st-ACTIVE">OPEN</span></td></tr><tr><td class="num">10.08</td><td>아침 운동</td><td>2학년 전체</td><td class="r num">118</td><td><span class="state st-ACTIVE">OPEN</span></td></tr><tr><td class="num">10.07</td><td>아침 운동</td><td>2학년 전체</td><td class="r num">142</td><td><span class="state st-WAITING">CLOSED</span></td></tr></tbody></table>`],
+    classes:["학급","학급과 담당 교사",`<table class="tbl"><thead><tr><th>학급</th><th class="r">학생</th><th>담당 교사</th></tr></thead><tbody>${[1,2,3,4,5,6,7,8].map(n=>`<tr><td>2학년 ${n}반</td><td class="r num">${24+(n%3)}</td><td>${n<=4?"체육 교사 A":"체육 교사 B"}</td></tr>`).join("")}</tbody></table>`],
+    xp:["XP","레벨표와 수동 조정",`<table class="tbl"><thead><tr><th>레벨</th><th class="r">다음 레벨까지</th><th class="r">누적</th></tr></thead><tbody>${[1,2,3,5,10,13,15].map(l=>{let acc=0;for(let n=1;n<l;n++)acc+=100+20*(n-1);return `<tr><td class="num">LV ${l}</td><td class="r num">${100+20*(l-1)} XP</td><td class="r num">${acc.toLocaleString()} XP</td></tr>`}).join("")}</tbody></table><p class="small muted">수동 조정은 사유를 꼭 적고, 기록은 지워지지 않아요.</p>`],
+    settings:["설정","학교 위치, QR 주기, 교사 초대",`<table class="tbl"><tbody><tr><td>QR 바뀌는 주기</td><td class="r"><b class="num">30초</b></td></tr><tr><td>위치 기준점</td><td class="r">체육관 앞 · 반경 80m</td></tr><tr><td>개인 랭킹 이름</td><td class="r">가운데 글자 가림</td></tr><tr><td>교사 계정</td><td class="r">총괄 1 · 일반 1</td></tr></tbody></table>`]
+  }[k];
+  if(!m){const ph={season:"PHASE 2",challenge:"PHASE 2",badge:"PHASE 2",stats:"PHASE 4"}[k];const t=AMENU.find(x=>x[0]===k)[1];
+    return `<div class="ahead"><div><span class="eyebrow">${ph}</span><h1>${t}</h1></div></div><div class="card"><p class="muted" style="margin:0">${t} 화면은 ${ph}에서 만들어요. 학생 화면의 같은 메뉴에서 어떻게 보일지는 미리 볼 수 있어요.</p></div>`;}
+  return `<div class="ahead"><div><span class="eyebrow">${m[1]}</span><h1>${m[0]}</h1></div></div><div class="card scroll" style="padding:6px 10px">${m[2]}</div>`;
+}
+function aRace(){
+  const g=S.raceGrade||1;
+  return `<div class="ahead"><div><span class="eyebrow">${g}학년 ${SIZES[g].length}개 반 · 10.12 ~ 10.30 · TV에 띄우는 화면</span><h1>아침 운동 학급 레이스</h1></div><div class="gtabs">${[1,2,3].map(x=>`<button data-act="rgrade" data-v="${x}" class="${x===g?"on":""}">${x}학년</button>`).join("")}</div></div>
+    <div class="msg info small" style="font-weight:500;margin-bottom:14px">반 인원은 2026학년도 명렬 기준이고, 참여 기록은 예시예요.</div>${raceHTML(g,false,0)}`;
+}
+function vAdmin(){
+  const k=S.aview;
+  const body = k==="race"?aRace():k==="mission"?aMission():k==="dash"?aDash():k==="live"?aLive():k==="qr"?aQr():k==="students"?aStudents():k==="programs"?aPrograms():k==="pops"?aPops():aSimple(k);
+  return `<div class="admin"><aside class="side"><div class="brand">NONGSO <em>ADMIN</em></div><div class="grp">PHASE 1</div>
+    ${AMENU.map((m,i)=>`${i===11?'<div class="grp">다음 단계</div>':""}<button data-act="aview" data-v="${m[0]}" class="${k===m[0]?"on":""}">${m[1]}${m[2]?`<small>${m[2]}</small>`:""}</button>`).join("")}
+    </aside><main class="main">${body}</main></div>`;
+}
+
+/* ---------- render & events ---------- */
+function render(){
+  if(!(S.view==="app"&&S.sub==="mrun")) mStopAll();
+  let html;
+  if(S.view==="splash") html=vSplash();
+  else if(S.view==="login") html=vLogin();
+  else if(S.view==="admin-login") html=vAdminLogin();
+  else if(S.view==="admin") html=vAdmin();
+  else html=vStudent();
+  $app.innerHTML=html;
+  if(S.view==="admin"&&S.aview==="qr"){qrDrawn="";drawQr();}
+  if(S.view==="splash"){const sp=document.getElementById("splash");sp.addEventListener("click",go);sp.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" ")go();});clearTimeout(window.__spT);window.__spT=setTimeout(go,2400);}
+}
+function go(){ if(S.view==="splash"){S.view="login";render();} }
+
+// light per-second refresh without rebuilding inputs
+setInterval(()=>{
+  if(S.view==="app"){
+    const a=S.att;
+    if(a&&a.state==="ACTIVE"&&(S.tab==="check"||S.tab==="home")){
+      const p=prog(a.prog),el=(now()-a.inAt)/1000,left=p.min-el;
+      const L=document.querySelector('[data-live="left"]');
+      if(L){
+        if(left<=0 && !L.dataset.ready){render();const n=document.querySelector('[data-live="left"]');if(n)n.dataset.ready="1";return;}
+        L.textContent=left>0?clock(left):"00:00";
+        const ring=document.querySelector('[data-live="ring"]');if(ring){const C=2*Math.PI*96;ring.setAttribute("stroke-dashoffset",C*(1-Math.min(1,el/p.min)));}
+      }
+      const H=document.querySelector('[data-live="homeLeft"]');
+      if(H){ if(left<=0&&!H.dataset.ready){render();const n=document.querySelector('[data-live="homeLeft"]');if(n)n.dataset.ready="1";} else if(left>0) H.firstChild.textContent=clock(left); }
+    }
+  } else if(S.view==="admin"){
+    if(S.aview==="qr"){
+      const left=QR_INT-(now()/1000%QR_INT);
+      if(qrDrawn!==S.qrMode+qrWindow()){render();return;}
+      const l=document.querySelector('[data-live="qrleft"]'),b=document.querySelector('[data-live="qrbar"]');
+      if(l)l.textContent=Math.ceil(left)+"초"; if(b)b.style.width=(left/QR_INT*100)+"%";
+    } else if(S.aview==="live"||S.aview==="dash"){ render(); }
+  }
+},1000);
+
+document.addEventListener("submit",e=>{
+  e.preventDefault();
+  if(e.target.id==="loginForm"){S.view="app";S.tab="home";render();toast(S.sub==="activate"?"명렬과 확인됐어요. 계정을 만들었어요.":"로그인했어요");S.sub=null;}
+  if(e.target.id==="aLoginForm"){S.view="admin";S.aview="dash";initLive();render();}
+});
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]"); if(!b) return;
+  const act=b.dataset.act, v=b.dataset.v;
+  switch(act){
+    case "login-tab": S.sub=v||null; render(); break;
+    case "tab": S.tab=v; S.sub=null; if(v==="check"&&S.att&&S.att.state!=="ACTIVE"&&!S.done){S.msg=null;} render(); window.scrollTo(0,0); break;
+    case "pick": S.pick=v; S.tab="check"; S.msg=null; if(!(S.att&&S.att.prog===v)) S.done=null; render(); window.scrollTo(0,0); break;
+    case "pickstay": S.pick=v; S.msg=null; render(); break;
+    case "scan": scan(v); break;
+    case "cheat": scan("in",{expired:v==="expired",otherDevice:v==="device"}); break;
+    case "reset": S.att=null; S.done=null; S.msg=null; render(); break;
+    case "rank": S.rankMode=v; render(); break;
+    case "sub": S.sub=v||null; render(); window.scrollTo(0,0); break;
+    case "logout": S.view="login"; S.sub=null; render(); break;
+    case "aview": S.aview=v; render(); window.scrollTo(0,0); break;
+    case "papsg": S.papsG=+v; render(); break;
+    case "papss": S.papsS=v; render(); break;
+    case "sgrade": S.sGrade=+v; render(); break;
+    case "rgrade": S.raceGrade=+v; render(); break;
+    case "qrmode": S.qrMode=v; render(); break;
+    case "close": S.sessionOpen=false; liveRows(); S.live.forEach(s=>{if(!s.me&&s.state==="ACTIVE")s.state="FAILED";}); if(S.att&&S.att.prog==="test"&&S.att.state==="ACTIVE"){S.att.state="FAILED";S.history.unshift({d:"10.08",p:"체험 테스트",st:"FAILED",xp:0});} render(); toast("세션을 닫았어요. 남은 ACTIVE는 FAILED가 됐어요."); break;
+    case "reopen": S.sessionOpen=true; render(); break;
+    case "manual": { const s=S.live[+v]; s.state="MANUAL"; render(); toast(s.n+" 학생을 MANUAL로 인정했어요 (+15 XP)"); break; }
+    case "issue": S.issued[+v]=1; render(); toast(NAMES[+v]+" 학생 비밀번호를 초기화했어요. 다음 접속 때 새로 만들어요."); break;
+    case "popsave": toast("체험판이라 저장하지 않았어요. 실제 앱에서는 한 번에 저장돼요."); break;
+    case "mstart": S.tab="more"; S.sub="mrun"; S.mid=v; render(); window.scrollTo(0,0); break;
+    case "mlist": S.tab="more"; S.sub="mission"; render(); window.scrollTo(0,0); break;
+    case "wgo": walkStart(); break;
+    case "wstop": walkStop("멈췄어요. 이어서 걷기를 누르면 다시 세요."); break;
+    case "mdemo": { const m=mById(S.mid); if(m&&m.kind==="walk") W.elapsed+=(+v)/108*60; mAdd(+v); break; }
+    case "mcam": poseCamera(); break;
+    case "madd": mAddFromForm(); break;
+    case "mview": S.mview=S.mview===v?null:v; render(); break;
+    case "noop": toast("체험판에서는 이 버튼이 동작하지 않아요"); break;
+  }
+});
+window.addEventListener("hashchange",()=>{ if(location.hash==="#admin"&&!S.view.startsWith("admin")){S.view="admin-login";render();} else if(location.hash!=="#admin"&&S.view.startsWith("admin")){S.view="login";render();} });
+render();
+})();
+</script>
+<script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));}</script>
+</body></html>

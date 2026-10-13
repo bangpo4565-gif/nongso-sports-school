@@ -1,0 +1,4 @@
+/*
+  Permissions-Policy: camera=(self), accelerometer=(self), gyroscope=(self)
+/models/*
+  Cache-Control: public, max-age=604800
