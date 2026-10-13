@@ -25,7 +25,7 @@ async function call(fn, args = {}) {
 async function loadHome() {
   const h = await call("student_home");
   S.home = h; S.offset = new Date(h.now).getTime() - Date.now();
-  if (S.raceGrade == null) S.raceGrade = h.me.grade;
+  if (S.raceGrade == null) S.raceGrade = h.me.grade || 1;
   return h;
 }
 async function loadRace(g) { S.races[g] = await call("student_race", { p_grade: g }); return S.races[g]; }
@@ -39,7 +39,7 @@ function logout(expired) {
 /* ---------- 화면 조각 ---------- */
 function topline() {
   const m = S.home?.me;
-  return `<div class="topline"><div class="brand">NONGSO <em>SPORTS</em></div><div class="who">${m ? `${m.grade}학년 ${m.class}반 ${m.num}번 ${esc(m.name)}` : ""}</div></div>`;
+  return `<div class="topline"><div class="brand">NONGSO <em>SPORTS</em></div><div class="who">${m ? (m.grade ? `${m.grade}학년 ${m.class}반 ${m.num}번 ${esc(m.name)}` : `${esc(m.name)} 선생님`) : ""}</div></div>`;
 }
 function vSplash() {
   return `<div class="splash" id="splash" role="button" tabindex="0" aria-label="시작하기" style="background-image:url(${PHOTO})">
@@ -54,7 +54,7 @@ function vLogin() {
     ${!configured() ? `<div class="msg bad">아직 서버 연결 설정이 안 됐어요. 체육 선생님께 알려 주세요.</div>` : ""}
     ${S.msg ? `<div class="msg ${S.msg.k}" role="alert">${esc(S.msg.t)}</div>` : ""}
     <form id="loginForm" class="stack" autocomplete="on">
-      <div class="field"><label for="sid">학번 5자리 (예: 2학년 3반 12번 → 20312)</label><input id="sid" name="username" inputmode="numeric" maxlength="5" pattern="[1-3][0-9]{4}" required autocomplete="username"></div>
+      <div class="field"><label for="sid">학번 5자리 (예: 2학년 3반 12번 → 20312 · 선생님은 9로 시작하는 교사번호)</label><input id="sid" name="username" inputmode="numeric" maxlength="5" pattern="[1-39][0-9]{4}" required autocomplete="username"></div>
       ${first ? `<div class="field"><label for="sname">이름</label><input id="sname" required autocomplete="name"></div>
       <div class="field"><label for="spw1">처음 비밀번호 만들기 (8자 이상)</label><input id="spw1" type="password" minlength="8" required autocomplete="new-password"></div>
       <div class="field"><label for="spw2">비밀번호 한 번 더</label><input id="spw2" type="password" minlength="8" required autocomplete="new-password"></div>`
@@ -208,7 +208,7 @@ function vMy() {
     <div class="pagehead"><span class="eyebrow">MY SPORTS</span><h2>SPORTS ID</h2></div>
     <section class="idcard">
       <div class="row between"><span class="idno">NS-${esc(h.me.no)}</span><span class="tier">${tierOf(h.me.xp)}</span></div>
-      <div class="idname">${esc(h.me.name)}</div><div class="small muted">농소중학교 · ${h.me.grade}학년 ${h.me.class}반 ${h.me.num}번</div>
+      <div class="idname">${esc(h.me.name)}</div><div class="small muted">농소중학교 · ${h.me.grade ? `${h.me.grade}학년 ${h.me.class}반 ${h.me.num}번` : `함께 운동하는 선생님 · 교사번호 ${esc(h.me.no)}`}</div>
       <div style="margin-top:14px"><div class="row between small"><span class="num" style="font:800 20px var(--display)">LV ${L.lv}</span><span class="muted num">${L.into} / ${L.need} XP</span></div><div class="bar" style="margin-top:6px"><i style="width:${L.into / L.need * 100}%"></i></div></div>
       <div class="idgrid"><div><b class="num">${h.me.xp.toLocaleString()}</b><span>누적 XP</span></div><div><b class="num">${h.total_count}</b><span>참여 횟수</span></div><div><b class="num">${h.week_count}</b><span>이번 주 참여</span></div><div><b class="num">${(h.missions || []).filter(m => m.done).length}</b><span>완료 미션</span></div></div>
     </section>
@@ -228,8 +228,8 @@ function vRank() {
       <p class="small muted" style="margin:0">점수는 참여율이에요. ${esc(b.program || "아침 운동")}에서 CHECK-IN과 CHECK-OUT을 모두 마친 학생만 세요. 기간: ${racePeriod(b)}</p>`}`;
   } else {
     const r = S.rank;
-    body = !r ? '<div class="card muted">불러오는 중이에요…</div>' : `<div class="msg info small" style="font-weight:500">다른 친구 이름은 가운데 글자를 가려요. 나는 ${h.me.grade}학년 ${r.total}명 중 <b>${r.my_rank}위</b>예요.</div>
-      <div class="stack" style="gap:8px">${r.top.map(p => `<div class="rk ${p.me ? "me" : ""}"><div class="pos num p${p.rank}">${p.rank}</div><div><b>${p.me ? esc(h.me.name) + " (나)" : esc(p.name)}</b><div class="mini"><span>${h.me.grade}학년 ${p.class}반</span></div></div><div class="sc num">${p.xp.toLocaleString()}<small>XP</small></div></div>`).join("")}</div>`;
+    body = !r ? '<div class="card muted">불러오는 중이에요…</div>' : `<div class="msg info small" style="font-weight:500">${h.me.grade ? `다른 친구 이름은 가운데 글자를 가려요. 나는 ${h.me.grade}학년 ${r.total}명 중` : `함께 운동하는 선생님 ${r.total}명 중`} <b>${r.my_rank}위</b>예요.</div>
+      <div class="stack" style="gap:8px">${r.top.map(p => `<div class="rk ${p.me ? "me" : ""}"><div class="pos num p${p.rank}">${p.rank}</div><div><b>${p.me ? esc(h.me.name) + " (나)" : esc(p.name)}</b><div class="mini"><span>${h.me.grade ? `${h.me.grade}학년 ${p.class}반` : "선생님"}</span></div></div><div class="sc num">${p.xp.toLocaleString()}<small>XP</small></div></div>`).join("")}</div>`;
   }
   return `<div class="stack">${topline()}
     <div class="pagehead"><span class="eyebrow">RANKING${cls && b ? ` · ${g}학년 · ${racePeriod(b)}` : ""}</span><h2>${cls ? "학급 레이스" : "개인 랭킹"}</h2></div>
@@ -277,7 +277,7 @@ function vSub() {
   return vMore();
 }
 function vPops() {
-  const g = S.papsG || S.home.me.grade, sx = S.papsS;
+  const g = S.papsG || S.home.me.grade || 1, sx = S.papsS;
   const keys = ["shuttle", "curl", "reach", "run50", "jump", "grip"];
   const rows = keys.map(key => { const it = PAPS.items[key], cut = it.cut[g + sx]; return `<tr><td><b>${it.el}</b><br><span class="muted small">${it.name}${it.unit ? " (" + it.unit + ")" : ""}</span></td>${[1, 2, 3, 4, 5].map(gr => `<td class="r num">${papsRange(it, cut, gr)}</td>`).join("")}</tr>`; }).join("");
   const c = PAPS.bmi[g + sx], f = x => (+x).toFixed(1);
@@ -379,7 +379,7 @@ function render() {
 function go() { if (S.view !== "splash") return; S.view = S.token ? "app" : "login"; render(); if (S.token) enterApp(); }
 async function enterApp() {
   S.view = "app"; render();
-  try { await loadHome(); render(); loadRace(S.home.me.grade).then(render).catch(() => {}); }
+  try { await loadHome(); render(); loadRace(S.home.me.grade || 1).then(render).catch(() => {}); }
   catch (e) { if (e.code !== "session_expired") { S.home = null; $app.innerHTML = `<div class="phone"><div class="msg bad" style="margin-top:40px">${esc(errText(e.code))}</div><button class="btn" style="margin-top:12px" onclick="location.reload()">다시 시도</button></div>`; } return; }
   if (pendingScan) { const p = pendingScan; pendingScan = null; history.replaceState(null, "", location.pathname); doScan(p); }
 }

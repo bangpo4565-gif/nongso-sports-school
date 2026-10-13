@@ -38,10 +38,10 @@ create table if not exists teachers (
 -- 명단은 학년·반·번호·이름 4가지만 받아요. 학번 = 학년 1자리 + 반 2자리 + 번호 2자리
 create table if not exists students (
   id uuid primary key default gen_random_uuid(),
-  student_no text not null unique check (student_no ~ '^[1-3][0-9]{4}$'),
-  grade int not null check (grade between 1 and 3),
-  class int not null check (class between 1 and 20),
-  num int not null check (num between 1 and 60),
+  student_no text not null unique,
+  grade int not null,
+  class int not null,
+  num int not null,
   name text not null,
   xp int not null default 0,
   active boolean not null default true,
@@ -49,6 +49,15 @@ create table if not exists students (
   created_at timestamptz not null default now()
 );
 create index if not exists students_grade_class on students (grade, class);
+-- 학생: 학번 5자리(학년+반2+번호2). 함께 운동하는 선생님: 학년·반 0, 교사번호 9로 시작하는 5자리(90001~)
+alter table students drop constraint if exists students_student_no_check;
+alter table students drop constraint if exists students_grade_check;
+alter table students drop constraint if exists students_class_check;
+alter table students drop constraint if exists students_num_check;
+alter table students add constraint students_student_no_check check (student_no ~ '^([1-3][0-9]{4}|9[0-9]{4})$');
+alter table students add constraint students_grade_check check (grade between 0 and 3);
+alter table students add constraint students_class_check check (class between 0 and 20);
+alter table students add constraint students_num_check check (num between 1 and 9999);
 
 create table if not exists student_secrets (
   student_id uuid primary key references students on delete cascade,
@@ -343,7 +352,7 @@ begin
         'mine', (select json_build_object('state', a.state, 'in_at', a.in_at, 'out_at', a.out_at, 'xp', a.xp) from attendance a where a.session_id = q.id and a.student_id = s.id))
         order by q.opened_at)
       from qr_sessions q join programs p on p.id = q.program_id
-      where q.closed_at is null and q.day = today and (q.target_grade is null or q.target_grade = s.grade)), '[]'),
+      where q.closed_at is null and q.day = today and (q.target_grade is null or q.target_grade = s.grade or s.grade = 0)), '[]'),
     'missions', coalesce((
       select json_agg(json_build_object('id', m.id, 'kind', m.kind, 'goal', m.goal, 'xp', m.xp, 'opens_at', m.opens_at, 'closes_at', m.closes_at,
         'target_grade', m.target_grade, 'target_class', m.target_class,
@@ -382,7 +391,7 @@ begin
   return json_build_object(
     'top', coalesce((select json_agg(x) from (
       select rank() over (order by xp desc) as rank, class,
-             mask_name(name) as name,
+             case when s.grade = 0 then regexp_replace(name, '\s', '', 'g') else mask_name(name) end as name,
              xp, id = s.id as me
       from students where grade = s.grade and active order by xp desc limit 20) x), '[]'),
     'my_rank', (select count(*) + 1 from students where grade = s.grade and active and xp > s.xp),
@@ -463,7 +472,7 @@ begin
   select * into q from qr_sessions where id = sid;
   if not found then return json_build_object('error', 'bad_qr'); end if;
   if q.closed_at is not null or q.day <> seoul_today() then return json_build_object('error', 'session_closed'); end if;
-  if q.target_grade is not null and q.target_grade <> s.grade then return json_build_object('error', 'not_target'); end if;
+  if q.target_grade is not null and q.target_grade <> s.grade and s.grade <> 0 then return json_build_object('error', 'not_target'); end if;
   if code <> qr_code_for(sid, mode, w) and code <> qr_code_for(sid, mode, w - 1) then return json_build_object('error', 'expired'); end if;
   select * into p from programs where id = q.program_id;
   select * into st from settings where id = 1;
@@ -526,7 +535,7 @@ begin
     'rows', coalesce((select json_agg(x order by x.grade, x.class, x.num) from (
       select s.id, s.grade, s.class, s.num, s.name, coalesce(a.state, 'WAITING') as state, a.in_at, a.out_at
       from students s left join attendance a on a.student_id = s.id and a.session_id = q.id
-      where s.active and (q.target_grade is null or s.grade = q.target_grade) and (p_class is null or s.class = p_class)) x), '[]'));
+      where s.active and (q.target_grade is null or s.grade = q.target_grade or s.grade = 0) and (p_class is null or s.class = p_class)) x), '[]'));
 end $$;
 
 create or replace function admin_sessions(p_days int default 14) returns json
@@ -550,7 +559,7 @@ begin
   perform need_staff();
   for r in select * from jsonb_array_elements(p_rows) loop
     g := (r ->> 'grade')::int; c := (r ->> 'class')::int; nn := (r ->> 'num')::int; nm := trim(r ->> 'name');
-    if g is null or c is null or nn is null or nm is null or nm = '' then continue; end if;
+    if g is null or c is null or nn is null or nm is null or nm = '' or g not between 1 and 3 or c not between 1 and 20 or nn not between 1 and 99 then continue; end if;
     no := g::text || lpad(c::text, 2, '0') || lpad(nn::text, 2, '0');
     if exists (select 1 from students where student_no = no) then
       update students set name = nm, grade = g, class = c, num = nn, active = true where student_no = no;
@@ -578,7 +587,7 @@ language plpgsql stable security definer set search_path = public, extensions as
 begin
   perform need_staff();
   return coalesce((select json_agg(x order by x.grade, x.class) from (
-    select grade, class, count(*) as n, count(signed_up_at) as joined from students where active group by grade, class) x), '[]');
+    select grade, class, count(*) as n, count(signed_up_at) as joined from students where active and grade > 0 group by grade, class) x), '[]');
 end $$;
 
 -- 비밀번호 초기화: 학생이 다음에 '처음이에요'로 다시 만들어요
@@ -635,7 +644,7 @@ begin
   perform need_staff();
   return coalesce((select json_agg(x order by x.closes_at desc) from (
     select m.*, (select count(*) from mission_subs ms where ms.mission_id = m.id) as subs,
-      (select count(*) from students s where s.active and (m.target_grade is null or s.grade = m.target_grade) and (m.target_class is null or s.class = m.target_class)) as targets
+      (select count(*) from students s where s.active and s.grade > 0 and (m.target_grade is null or s.grade = m.target_grade) and (m.target_class is null or s.class = m.target_class)) as targets
     from missions m order by m.closes_at desc limit 100) x), '[]');
 end $$;
 
@@ -681,8 +690,8 @@ begin
   perform need_staff();
   return json_build_object(
     'me', (select json_build_object('name', name, 'email', email, 'role', role) from teachers where id = auth.uid()),
-    'students', (select count(*) from students where active),
-    'joined', (select count(*) from students where active and signed_up_at is not null),
+    'students', (select count(*) from students where active and grade > 0),
+    'joined', (select count(*) from students where active and grade > 0 and signed_up_at is not null),
     'today_done', (select count(*) from attendance a join qr_sessions q on q.id = a.session_id where q.day = today and a.state in ('COMPLETED', 'MANUAL')),
     'today_active', (select count(*) from attendance a join qr_sessions q on q.id = a.session_id where q.day = today and a.state = 'ACTIVE'),
     'open_sessions', (select count(*) from qr_sessions where closed_at is null and day = today),
@@ -754,6 +763,47 @@ begin
   return pid;
 end $$;
 
+-- ---------- 함께 운동하는 선생님 ----------
+-- rows: [{"name":"홍길동"} 또는 {"num":3,"name":"홍길동"}] 번호가 없으면 다음 번호를 붙여요. 같은 이름이 이미 있으면 그대로 둬요
+create or replace function admin_import_staff(p_rows jsonb) returns json
+language plpgsql security definer set search_path = public, extensions as $$
+declare r jsonb; nm text; nn int; n_new int := 0; n_same int := 0;
+begin
+  perform need_staff();
+  for r in select * from jsonb_array_elements(p_rows) loop
+    nm := regexp_replace(coalesce(r ->> 'name', ''), '\s', '', 'g');
+    if nm = '' then continue; end if;
+    nn := (r ->> 'num')::int;
+    if nn is null and exists (select 1 from students where grade = 0 and regexp_replace(name, '\s', '', 'g') = nm) then
+      update students set active = true where grade = 0 and regexp_replace(name, '\s', '', 'g') = nm;
+      n_same := n_same + 1; continue;
+    end if;
+    if nn is null then nn := coalesce((select max(num) from students where grade = 0), 0) + 1; end if;
+    if nn < 1 or nn > 9999 then continue; end if;
+    insert into students (student_no, grade, class, num, name) values ('9' || lpad(nn::text, 4, '0'), 0, 0, nn, nm)
+    on conflict (student_no) do update set name = excluded.name, active = true;
+    n_new := n_new + 1;
+  end loop;
+  return json_build_object('added', n_new, 'same', n_same);
+end $$;
+
+-- 선생님 참여 순위: 레이스 기간 안 완료 횟수, 그다음 XP
+create or replace function admin_staff_board() returns json
+language plpgsql stable security definer set search_path = public, extensions as $$
+declare st settings;
+begin
+  perform need_staff();
+  select * into st from settings where id = 1;
+  return json_build_object('from', st.race_from, 'to', st.race_to, 'program', (select name from programs where id = st.race_program_id),
+    'rows', coalesce((select json_agg(x order by x.done desc, x.xp desc, x.num) from (
+      select s.id, s.student_no, s.num, s.name, s.xp, s.active, s.signed_up_at,
+        (select count(*) from attendance a join qr_sessions q on q.id = a.session_id
+          where a.student_id = s.id and a.state in ('COMPLETED', 'MANUAL') and q.program_id = st.race_program_id
+            and (st.race_from is null or q.day >= st.race_from) and (st.race_to is null or q.day <= st.race_to)) as done,
+        (select count(*) from attendance a where a.student_id = s.id and a.state in ('COMPLETED', 'MANUAL')) as all_done
+      from students s where s.grade = 0) x), '[]'));
+end $$;
+
 -- ---------- 함수 실행 권한 ----------
 -- 학생은 로그인 없이(anon) student_* 와 race_board 만, 선생님(authenticated)은 admin_* 도 (안에서 다시 확인해요)
 revoke execute on all functions in schema public from public, anon, authenticated;
@@ -768,4 +818,4 @@ grant execute on function admin_open_session(int, int), admin_close_session(uuid
   admin_classes(), admin_reset_password(uuid), admin_set_active(uuid, boolean), admin_adjust_xp(uuid, int, text),
   admin_create_mission(text, int, int, int, int, timestamptz, timestamptz), admin_delete_mission(uuid), admin_missions(),
   admin_mission_subs(uuid, int, int), admin_dashboard(), admin_settings(), admin_save_settings(jsonb),
-  admin_set_teacher(uuid, text), admin_save_program(jsonb) to authenticated;
+  admin_set_teacher(uuid, text), admin_save_program(jsonb), admin_import_staff(jsonb), admin_staff_board() to authenticated;

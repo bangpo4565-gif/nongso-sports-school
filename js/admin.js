@@ -51,11 +51,11 @@ function vPending() {
 
 /* ---------- 화면 틀 ---------- */
 const MENU = [["dash", "DASHBOARD"], ["sessions", "QR 출석 열기"], ["live", "LIVE 출석"], ["qr", "QR 화면 (TV)"], ["race", "학급 레이스 (TV)"],
-  ["mission", "미션"], ["students", "학생 · 명단"], ["programs", "운동 프로그램"], ["settings", "설정"]];
+  ["mission", "미션"], ["students", "학생 · 명단"], ["staff", "선생님 참여"], ["programs", "운동 프로그램"], ["settings", "설정"]];
 function vAdmin() {
   const p = S.page;
   const body = p === "dash" ? aDash() : p === "sessions" ? aSessions() : p === "live" ? aLive() : p === "qr" ? aQr() : p === "race" ? aRace()
-    : p === "mission" ? aMission() : p === "students" ? aStudents() : p === "programs" ? aPrograms() : aSettings();
+    : p === "mission" ? aMission() : p === "students" ? aStudents() : p === "staff" ? aStaff() : p === "programs" ? aPrograms() : aSettings();
   const pend = S.dash?.pending_teachers || 0;
   return `<div class="admin ${S.tv ? "tv" : ""}"><aside class="side"><div class="brand">NONGSO <em>ADMIN</em></div><div class="grp">${esc(S.me?.name || S.me?.email || "")}</div>
     ${MENU.map(([k, t]) => `<button data-act="page" data-v="${k}" class="${p === k ? "on" : ""}">${t}${k === "settings" && pend && isOwner() ? `<small>승인 ${pend}</small>` : ""}</button>`).join("")}
@@ -122,11 +122,11 @@ function aLive() {
       s.closed_at ? `<span class="chip">세션 닫힘</span><button class="btn sm teal" data-act="sreopen" data-v="${s.id}">다시 열기</button>`
         : `<button class="btn sm ghost" data-act="goqr" data-v="${s.id}">QR 화면 띄우기</button><button class="btn sm" data-act="sclose" data-v="${s.id}">세션 닫기</button>`) +
     `<div class="row" style="gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end">${sessionPicker()}
-      <div class="field" style="min-width:140px"><label for="lcls">반</label><select id="lcls"><option value="">전체</option>${(S.liveClasses || classes).map(k => `<option value="${k}" ${k === S.liveClass ? "selected" : ""}>${k.replace("-", "학년 ")}반</option>`).join("")}</select></div></div>
+      <div class="field" style="min-width:140px"><label for="lcls">반</label><select id="lcls"><option value="">전체</option>${(S.liveClasses || classes).map(k => `<option value="${k}" ${k === S.liveClass ? "selected" : ""}>${k === "0-0" ? "선생님" : k.replace("-", "학년 ") + "반"}</option>`).join("")}</select></div></div>
     <div class="livehead">${["WAITING", "ACTIVE", "COMPLETED", "FAILED", "MANUAL"].map(k => `<div class="count"><span class="state st-${k}">${k}</span><b class="num">${c(k)}</b></div>`).join("")}</div>
     <div class="card scroll" style="padding:6px 10px"><table class="tbl"><thead><tr><th>학급</th><th>번호</th><th>이름</th><th>상태</th><th class="r">CHECK-IN</th><th class="r">경과</th><th class="r">처리</th></tr></thead><tbody>
     ${rows.map(r => { const el = r.state === "ACTIVE" && r.in_at ? (now - new Date(r.in_at).getTime()) / 1000 : null;
-      return `<tr><td class="num">${r.grade}-${r.class}</td><td class="num">${r.num}</td><td>${esc(r.name)}</td><td><span class="state st-${r.state}">${r.state}</span></td>
+      return `<tr><td class="num">${r.grade ? r.grade + "-" + r.class : "선생님"}</td><td class="num">${r.num}</td><td>${esc(r.name)}</td><td><span class="state st-${r.state}">${r.state}</span></td>
         <td class="r num muted">${r.in_at ? fmtTime(r.in_at) : "–"}</td><td class="r num">${el != null ? (el >= s.min_seconds ? `<span style="color:var(--good)">${clock(el)}</span>` : clock(el)) : "–"}</td>
         <td class="r">${r.state === "COMPLETED" || r.state === "MANUAL" ? "" : `<button class="btn sm ghost" data-act="manual" data-v="${r.id}">직접 인정</button>`}</td></tr>`; }).join("")}
     </tbody></table></div><p class="small muted">5초마다 새로 고쳐요. 휴대폰이 없는 학생은 직접 인정을 누르면 MANUAL로 XP가 들어가요.</p>`;
@@ -210,6 +210,36 @@ function parseRoster(text) {
     out.push({ grade, class: cls, num, name });
   }
   return { rows: out, bad };
+}
+
+/* ---------- 함께 운동하는 선생님 ---------- */
+function aStaff() {
+  const b = S.staff;
+  const rows = b ? b.rows : null;
+  return head("선생님도 학생 앱에서 교사번호로 출석해요. 참여 순위로 상품을 드려요", "선생님 참여") +
+    `<div class="card scroll" style="padding:6px 10px">${!rows ? loading : !rows.length ? '<p class="muted">아직 등록한 선생님이 없어요. 아래에 이름을 붙여 넣어 주세요.</p>' :
+      `<div class="small muted" style="padding:10px 4px">${esc(b.program || "")} 기준 · ${racePeriod(b)} · 참여 횟수가 같으면 XP가 많은 순서예요</div>
+      <table class="tbl"><thead><tr><th class="r">순위</th><th>교사번호</th><th>이름</th><th>계정</th><th class="r">기간 참여</th><th class="r">전체 참여</th><th class="r">XP</th><th class="r">관리</th></tr></thead><tbody>
+      ${rows.map((t, i) => `<tr style="${t.active ? "" : "opacity:.5"}"><td class="r num">${i + 1}</td><td class="num"><b>${t.student_no}</b></td><td>${esc(t.name)}</td>
+        <td>${t.signed_up_at ? '<span class="state st-COMPLETED">가입</span>' : '<span class="state st-WAITING">미가입</span>'}</td><td class="r num"><b>${t.done}</b></td><td class="r num">${t.all_done}</td><td class="r num">${t.xp}</td>
+        <td class="r" style="white-space:nowrap">${t.signed_up_at ? `<button class="btn sm ghost" data-act="spw" data-v="${t.id}" data-n="${esc(t.name)}" data-staff="1">비밀번호 초기화</button> ` : ""}<button class="btn sm ghost" data-act="sact" data-v="${t.id}" data-on="${t.active ? 0 : 1}" data-staff="1">${t.active ? "제외" : "되살리기"}</button></td></tr>`).join("")}
+      </tbody></table>`}</div>
+    <section class="card stack" style="margin-top:16px"><span class="eyebrow">선생님 등록</span>
+      <p class="small muted" style="margin:0">한 줄에 한 분씩 <b>이름</b>만 붙여 넣으면 교사번호(90001, 90002…)가 차례로 붙어요. 이미 등록된 이름은 건너뛰어요. 선생님께는 <b>학생 앱 주소</b>와 <b>교사번호</b>를 알려 드리고, '처음이에요'에서 교사번호 + 이름으로 비밀번호를 만들게 해 주세요.</p>
+      <textarea id="staffin" rows="6" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--fg);font:14px/1.5 var(--body)" placeholder="홍길동&#10;김철수">${esc(S.stext || "")}</textarea>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn sm ghost" style="width:auto">CSV 파일 고르기<input id="stafffile" type="file" accept=".csv,.txt,text/csv" hidden></label><button class="btn sm teal" data-act="staffup" style="width:auto">등록하기</button></div>
+    </section>`;
+}
+function parseStaff(text) {
+  const out = [], seen = new Set();
+  for (const raw of text.split(/\r?\n/)) {
+    const parts = raw.split(/\t|,/).map(x => x.trim().replace(/^"|"$/g, "")).filter(Boolean);
+    if (!parts.length) continue;
+    // 한글 이름처럼 보이는 칸을 이름으로 써요 (부서, 담당 같은 칸은 무시)
+    const name = parts.map(x => x.replace(/\s/g, "")).find(x => /^[가-힣]{2,5}$/.test(x) && !/^(이름|성명|교사|부서|담당|교과|직위|비고|학년|학급|담임)$/.test(x));
+    if (!name || seen.has(name)) continue; seen.add(name); out.push({ name });
+  }
+  return out;
 }
 
 /* ---------- 미션 ---------- */
@@ -304,6 +334,7 @@ async function load(page = S.page) {
       S.classes = await call("admin_classes");
       if (S.classes.length) { if (!S.cls || !S.classes.find(c => c.grade + "-" + c.class === S.cls)) S.cls = S.classes[0].grade + "-" + S.classes[0].class; await loadStudents(); }
     }
+    if (page === "staff") S.staff = await call("admin_staff_board");
     if (page === "mission") { [S.missions, S.classes] = await Promise.all([call("admin_missions"), call("admin_classes")]); if (S.mview) await loadSubs(); }
     if (page === "programs" || page === "settings" || page === "sessions") S.cfg = await call("admin_settings");
   } catch (e) { toast(aerr(e)); }
@@ -399,6 +430,12 @@ document.addEventListener("change", async e => {
   if (id === "scls") { S.cls = e.target.value; try { await loadStudents(); } catch (er) { toast(aerr(er)); } render(); }
   if (id === "mcls") { S.mcls = e.target.value; S.msubs = null; render(); try { await loadSubs(); } catch (er) { toast(aerr(er)); } render(); }
   if (id === "mk") { const g = document.getElementById("mg"); if (g) g.value = MKIND[e.target.value].def; }
+  if (id === "stafffile" && e.target.files[0]) {
+    const buf = await e.target.files[0].arrayBuffer();
+    let t = new TextDecoder("utf-8").decode(buf);
+    if (t.includes("\ufffd")) { try { t = new TextDecoder("euc-kr").decode(buf); } catch {} }
+    S.stext = t; render();
+  }
   if (id === "rosterfile" && e.target.files[0]) {
     const buf = await e.target.files[0].arrayBuffer();
     let t = new TextDecoder("utf-8").decode(buf);
@@ -412,7 +449,7 @@ function rcheck() {
   if (!r.rows.length) toast("읽을 수 있는 줄이 없어요. 학년, 반, 번호, 이름 순서인지 확인해 주세요.");
   render();
 }
-document.addEventListener("input", e => { if (e.target.id === "roster") S.rtext = e.target.value; });
+document.addEventListener("input", e => { if (e.target.id === "roster") S.rtext = e.target.value; if (e.target.id === "staffin") S.stext = e.target.value; });
 document.addEventListener("click", async e => {
   const b = e.target.closest("[data-act]"); if (!b) return;
   const act = b.dataset.act, v = b.dataset.v;
@@ -438,13 +475,19 @@ document.addEventListener("click", async e => {
     case "tvoff": S.tv = false; if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); render(); break;
     case "rgrade": S.raceGrade = +v; render(); load("race"); break;
     case "spw": if (!confirm(`${b.dataset.n} 학생의 비밀번호를 초기화할까요? 학생이 '처음이에요'에서 새로 만들어요.`)) break;
-      await busy(async () => { await call("admin_reset_password", { p_student: v }); await loadStudents(); render(); }, "초기화했어요"); break;
+      await busy(async () => { await call("admin_reset_password", { p_student: v }); if (b.dataset.staff) S.staff = await call("admin_staff_board"); else await loadStudents(); render(); }, "초기화했어요"); break;
     case "sxp": {
       const amt = prompt(`${b.dataset.n} 학생 XP를 몇 점 더할까요? 뺄 때는 -10처럼 써요.`); if (!amt) break;
       const reason = prompt("이유를 적어 주세요 (학생 기록에 남아요)"); if (!reason) break;
       await busy(async () => { await call("admin_adjust_xp", { p_student: v, p_amount: parseInt(amt, 10) || 0, p_reason: reason }); await loadStudents(); render(); }, "XP를 조정했어요"); break;
     }
-    case "sact": await busy(async () => { await call("admin_set_active", { p_student: v, p_active: b.dataset.on === "1" }); await loadStudents(); render(); }); break;
+    case "sact": await busy(async () => { await call("admin_set_active", { p_student: v, p_active: b.dataset.on === "1" }); if (b.dataset.staff) S.staff = await call("admin_staff_board"); else await loadStudents(); render(); }); break;
+    case "staffup": await busy(async () => {
+      const rows = parseStaff(S.stext || document.getElementById("staffin").value);
+      if (!rows.length) throw new Error("이름을 찾지 못했어요. 한 줄에 한 분씩 이름을 써 주세요.");
+      const r = await call("admin_import_staff", { p_rows: rows });
+      S.stext = ""; toast(`새로 ${r.added}분 등록${r.same ? `, 이미 있던 ${r.same}분은 그대로` : ""}`); await load("staff");
+    }); break;
     case "rcheck": rcheck(); break;
     case "rup": await busy(async () => {
       const rows = S.rpreview; let added = 0, updated = 0;
