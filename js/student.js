@@ -218,7 +218,7 @@ function vMy() {
 
 /* ---------- RANKING ---------- */
 function vRank() {
-  const cls = S.rankMode === "class", h = S.home, g = S.raceGrade || h.me.grade, b = S.races[g];
+  const h = S.home, tch = !h.me.grade, cls = !tch && S.rankMode === "class", g = S.raceGrade || h.me.grade, b = S.races[g];
   let body = "";
   if (cls) {
     const c = b && g === h.me.grade ? chaseOf(b, h.me.class) : null;
@@ -232,8 +232,8 @@ function vRank() {
       <div class="stack" style="gap:8px">${r.top.map(p => `<div class="rk ${p.me ? "me" : ""}"><div class="pos num p${p.rank}">${p.rank}</div><div><b>${p.me ? esc(h.me.name) + " (나)" : esc(p.name)}</b><div class="mini"><span>${h.me.grade ? `${h.me.grade}학년 ${p.class}반` : "선생님"}</span></div></div><div class="sc num">${p.xp.toLocaleString()}<small>XP</small></div></div>`).join("")}</div>`;
   }
   return `<div class="stack">${topline()}
-    <div class="pagehead"><span class="eyebrow">RANKING${cls && b ? ` · ${g}학년 · ${racePeriod(b)}` : ""}</span><h2>${cls ? "학급 레이스" : "개인 랭킹"}</h2></div>
-    <div class="seg"><button data-act="rank" data-v="class" class="${cls ? "on" : ""}">학급 레이스</button><button data-act="rank" data-v="person" class="${cls ? "" : "on"}">개인</button></div>
+    <div class="pagehead"><span class="eyebrow">RANKING${cls && b ? ` · ${g}학년 · ${racePeriod(b)}` : ""}</span><h2>${tch ? "선생님 참여 순위" : cls ? "학급 레이스" : "개인 랭킹"}</h2></div>
+    ${tch ? "" : `<div class="seg"><button data-act="rank" data-v="class" class="${cls ? "on" : ""}">학급 레이스</button><button data-act="rank" data-v="person" class="${cls ? "" : "on"}">개인</button></div>`}
     ${body}</div>`;
 }
 
@@ -371,7 +371,7 @@ function render() {
   else if (!S.home) html = `<div class="phone"><div class="card muted" style="margin-top:40px">불러오는 중이에요…</div></div>`;
   else {
     const v = S.tab === "home" ? vHome() : S.tab === "check" ? vCheck() : S.tab === "my" ? vMy() : S.tab === "rank" ? vRank() : S.sub ? vSub() : vMore();
-    html = `<div class="phone ${S.tab === "rank" && S.rankMode === "class" ? "wide" : ""}">${v}</div>${tabsBar()}`;
+    html = `<div class="phone ${S.tab === "rank" && S.rankMode === "class" && S.home?.me?.grade ? "wide" : ""}">${v}</div>${tabsBar()}`;
   }
   $app.innerHTML = html;
   if (S.view === "splash") { const sp = document.getElementById("splash"); sp.addEventListener("click", go); sp.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") go(); }); clearTimeout(window.__spT); window.__spT = setTimeout(go, 1800); }
@@ -379,7 +379,7 @@ function render() {
 function go() { if (S.view !== "splash") return; S.view = S.token ? "app" : "login"; render(); if (S.token) enterApp(); }
 async function enterApp() {
   S.view = "app"; render();
-  try { await loadHome(); render(); loadRace(S.home.me.grade || 1).then(render).catch(() => {}); }
+  try { await loadHome(); render(); if (S.home.me.grade) loadRace(S.home.me.grade).then(render).catch(() => {}); }
   catch (e) { if (e.code !== "session_expired") { S.home = null; $app.innerHTML = `<div class="phone"><div class="msg bad" style="margin-top:40px">${esc(errText(e.code))}</div><button class="btn" style="margin-top:12px" onclick="location.reload()">다시 시도</button></div>`; } return; }
   if (pendingScan) { const p = pendingScan; pendingScan = null; history.replaceState(null, "", location.pathname); doScan(p); }
 }
@@ -437,7 +437,7 @@ document.addEventListener("click", async e => {
     case "login-tab": S.loginTab = v; S.msg = null; render(); break;
     case "tab":
       stopScan(); S.tab = v; S.sub = null; S.msg = v === "check" ? S.msg : null; if (v !== "check") S.done = null; render(); window.scrollTo(0, 0);
-      if (v === "rank") { loadRace(S.raceGrade).then(render).catch(() => {}); if (!S.rank) call("student_rank").then(r => { S.rank = r; render(); }).catch(() => {}); }
+      if (v === "rank") { if (S.home.me.grade) loadRace(S.raceGrade).then(render).catch(() => {}); if (!S.rank) call("student_rank").then(r => { S.rank = r; render(); }).catch(() => {}); }
       if (v === "home" || v === "check") loadHome().then(render).catch(() => {});
       break;
     case "pick": S.pick = v; S.tab = "check"; S.msg = null; S.done = null; render(); window.scrollTo(0, 0); break;
