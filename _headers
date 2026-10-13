@@ -1,4 +1,10 @@
 /*
-  Permissions-Policy: camera=(self), accelerometer=(self), gyroscope=(self)
+  Permissions-Policy: camera=(self), accelerometer=(self), gyroscope=(self), geolocation=(self)
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+/sw.js
+  Cache-Control: no-cache
 /models/*
   Cache-Control: public, max-age=604800
+/admin.html
+  X-Robots-Tag: noindex
