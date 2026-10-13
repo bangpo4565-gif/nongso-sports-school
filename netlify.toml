@@ -1,6 +1,13 @@
 [build]
   publish = "."
 
+# 옛 주소(netlify.app)로 들어오면 새 주소로 보내요.
+[[redirects]]
+  from = "https://nongso-sports-school.netlify.app/*"
+  to = "https://nongso-sports.bangssam.kr/:splat"
+  status = 301
+  force = true
+
 [[redirects]]
   from = "/admin"
   to = "/admin.html"
