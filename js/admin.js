@@ -1,13 +1,13 @@
 // 선생님 화면. 로그인은 Supabase 계정(이메일), 기록은 모두 admin_* 서버 함수로만 바꿔요.
 import { SUPABASE_URL, SUPABASE_KEY, configured, esc, mmss, clock, levelOf, fmtDay, fmtTime, fmtDT, toast,
-  raceHTML, racePeriod, MKIND, HOWLAB, mTitle } from "./common.js";
+  raceHTML, racePeriod, MKIND, HOWLAB, mTitle, PAPS_REC, PAPS_KEYS, papsKey } from "./common.js";
 
 const $app = document.getElementById("app");
 const sb = configured() ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }) : null;
 const S = {
   view: "loading", authTab: "login", msg: null, busy: false, me: null, page: "dash", tv: false,
   dash: null, sessions: null, sid: null, live: null, liveClass: "", qrMode: "in", qr: null,
-  raceGrade: 1, race: {}, classes: null, cls: null, students: null, missions: null, mview: null, mcls: null, msubs: null, cfg: null
+  raceGrade: 1, race: {}, classes: null, pcls: null, pyear: new Date().getFullYear(), pround: 1, pitem: "shuttle", prows: null, pedit: {}, ptext: "", ppreview: null, pbad: 0, cls: null, students: null, missions: null, mview: null, mcls: null, msubs: null, cfg: null
 };
 
 const AERR = {
@@ -51,11 +51,11 @@ function vPending() {
 
 /* ---------- 화면 틀 ---------- */
 const MENU = [["dash", "DASHBOARD"], ["sessions", "QR 출석 열기"], ["live", "LIVE 출석"], ["qr", "QR 화면 (TV)"], ["race", "학급 레이스 (TV)"],
-  ["mission", "미션"], ["students", "학생 · 명단"], ["staff", "선생님 참여"], ["programs", "운동 프로그램"], ["settings", "설정"]];
+  ["mission", "미션"], ["students", "학생 · 명단"], ["paps", "POPS 기록"], ["staff", "선생님 참여"], ["programs", "운동 프로그램"], ["settings", "설정"]];
 function vAdmin() {
   const p = S.page;
   const body = p === "dash" ? aDash() : p === "sessions" ? aSessions() : p === "live" ? aLive() : p === "qr" ? aQr() : p === "race" ? aRace()
-    : p === "mission" ? aMission() : p === "students" ? aStudents() : p === "staff" ? aStaff() : p === "programs" ? aPrograms() : aSettings();
+    : p === "mission" ? aMission() : p === "students" ? aStudents() : p === "paps" ? aPaps() : p === "staff" ? aStaff() : p === "programs" ? aPrograms() : aSettings();
   const pend = S.dash?.pending_teachers || 0;
   return `<div class="admin ${S.tv ? "tv" : ""}"><aside class="side"><div class="brand">NONGSO <em>ADMIN</em></div><div class="grp">${esc(S.me?.name || S.me?.email || "")}</div>
     ${MENU.map(([k, t]) => `<button data-act="page" data-v="${k}" class="${p === k ? "on" : ""}">${t}${k === "settings" && pend && isOwner() ? `<small>승인 ${pend}</small>` : ""}</button>`).join("")}
@@ -212,6 +212,62 @@ function parseRoster(text) {
   return { rows: out, bad };
 }
 
+/* ---------- POPS(PAPS) 기록 ---------- */
+const ykey = r => r.year * 10 + r.round;
+function aPaps() {
+  const cl = S.classes, it = PAPS_REC[S.pitem], cur = S.pyear * 10 + S.pround;
+  const sel = `<div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+    <div class="field" style="min-width:150px"><label for="pcls">학급</label><select id="pcls">${(cl || []).map(c => `<option value="${c.grade}-${c.class}" ${S.pcls === c.grade + "-" + c.class ? "selected" : ""}>${c.grade}학년 ${c.class}반</option>`).join("")}</select></div>
+    <div class="field" style="width:110px"><label for="pyear">학년도</label><input id="pyear" type="number" min="2015" max="2100" value="${S.pyear}"></div>
+    <div class="field" style="width:100px"><label for="pround">회차</label><select id="pround">${[1, 2, 3, 4].map(n => `<option value="${n}" ${S.pround === n ? "selected" : ""}>${n}차</option>`).join("")}</select></div>
+    <div class="field" style="min-width:200px"><label for="pitem">종목</label><select id="pitem">${PAPS_KEYS.map(k => `<option value="${k}" ${S.pitem === k ? "selected" : ""}>${PAPS_REC[k].el} · ${PAPS_REC[k].name} (${PAPS_REC[k].unit})</option>`).join("")}</select></div></div>`;
+  const rows = S.prows;
+  const table = !cl ? loading : !cl.length ? '<div class="card muted">먼저 학생 · 명단에서 명단을 올려 주세요.</div>' : !rows ? loading :
+    `<div class="card scroll" style="padding:6px 10px"><table class="tbl"><thead><tr><th>번호</th><th>이름</th><th class="r">기록 (${it.unit})</th><th class="r">등급</th><th class="r">이전 기록</th><th class="r">변화</th></tr></thead><tbody>
+    ${rows.map(st => {
+      const mine = st.recs.filter(r => r.item === S.pitem), now = mine.find(r => ykey(r) === cur), prev = mine.filter(r => ykey(r) < cur).pop();
+      const ed = S.pedit[st.id] || {}, v = ed.v !== undefined ? ed.v : now ? +now.value : "", g = ed.g !== undefined ? ed.g : now && now.grade_level ? now.grade_level : "";
+      const d = v !== "" && prev ? +v - +prev.value : null, better = d != null && (it.hi ? d > 0 : d < 0);
+      return `<tr><td class="num">${st.num}</td><td>${esc(st.name)}</td>
+        <td class="r"><input class="pin" data-pv="${st.id}" value="${v}" inputmode="decimal" aria-label="${st.num}번 기록" style="width:90px;text-align:right"></td>
+        <td class="r"><input class="pin" data-pg="${st.id}" value="${g}" inputmode="numeric" aria-label="${st.num}번 등급" style="width:56px;text-align:right"></td>
+        <td class="r num muted">${prev ? `${+prev.value} <span class="small">(${prev.year} ${prev.round}차)</span>` : "-"}</td>
+        <td class="r num">${d == null || d === 0 ? "" : `<span style="color:${better ? "var(--good)" : "var(--muted)"}">${d > 0 ? "▲" : "▼"} ${+Math.abs(d).toFixed(2)}</span>`}</td></tr>`;
+    }).join("")}</tbody></table></div>
+    <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn sm teal" data-act="papssave" style="width:auto">이 종목 저장</button>
+      <span class="small muted">기록 칸을 비우고 저장하면 그 기록을 지워요. 등급은 나이스에 나온 등급을 그대로 써요(1~5).</span></div>`;
+  const pv = S.ppreview;
+  return head("학생은 자기 기록만 볼 수 있어요. 다른 학생과 비교하지 않아요", "POPS 기록") + sel + table +
+    `<section class="card stack" style="margin-top:16px"><span class="eyebrow">한꺼번에 올리기</span>
+      <p class="small muted" style="margin:0">엑셀이나 CSV에서 <b>학번, 이름, 학년도, 회차, 종목, 기록, 등급</b> 7칸을 복사해 붙여 넣으세요. 첫 줄에 칸 이름이 있어도 돼요. 이름이 명단과 다르면 그 줄은 저장하지 않아요. 생년월일·성별·키·몸무게는 넣지 마세요.</p>
+      <textarea id="papsin" rows="6" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--fg);font:14px/1.5 var(--body)" placeholder="학번,이름,학년도,회차,종목,기록,등급&#10;10201,홍길동,2026,1,왕복오래달리기,45,2">${esc(S.ptext || "")}</textarea>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><label class="btn sm ghost" style="width:auto">CSV 파일 고르기<input id="papsfile" type="file" accept=".csv,.txt,text/csv" hidden></label><button class="btn sm" data-act="papscheck" style="width:auto">확인하기</button>${pv ? `<button class="btn sm teal" data-act="papsup" style="width:auto">${pv.length}개 기록 올리기</button>` : ""}</div>
+      ${pv ? `<div class="small">${S.pbad ? `<span style="color:var(--warn)">읽지 못한 줄 ${S.pbad}개는 빼고 올려요.</span> ` : ""}학생 ${new Set(pv.map(r => r.student_no)).size}명 · 종목 ${[...new Set(pv.map(r => PAPS_REC[r.item].name))].join(", ")}</div>` : ""}
+    </section>`;
+}
+function parsePaps(text) {
+  const out = [], seen = new Set(); let bad = 0, cols = null;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim(); if (!line) continue;
+    const parts = line.split(/\t|,/).map(x => x.trim().replace(/^"|"$/g, ""));
+    if (/학번/.test(line) && /종목/.test(line)) { cols = {}; parts.forEach((p, i) => { for (const k of ["학번", "이름", "학년도", "회차", "종목", "기록", "등급"]) if (p.includes(k)) cols[k] = i; }); continue; }
+    const at = (k, i) => parts[cols && cols[k] != null ? cols[k] : i] ?? "";
+    const no = at("학번", 0).replace(/[^0-9]/g, ""), item = papsKey(at("종목", 4)), year = parseInt(at("학년도", 2), 10), round = parseInt(at("회차", 3), 10) || 1;
+    const value = at("기록", 5).replace(/[^0-9.\-]/g, ""), g = at("등급", 6).replace(/[^0-9]/g, "");
+    if (!/^\d{5}$/.test(no) || !item || !(year >= 2015 && year <= 2100) || value === "" || !Number.isFinite(+value)) { bad++; continue; }
+    const k = [no, year, round, item].join("|"); if (seen.has(k)) continue; seen.add(k);
+    out.push({ student_no: no, name: at("이름", 1).replace(/\s/g, ""), year, round, item, value, grade_level: g ? +g : null });
+  }
+  return { rows: out, bad };
+}
+function papscheck() {
+  const t = document.getElementById("papsin").value, r = parsePaps(t);
+  S.ptext = t; S.ppreview = r.rows.length ? r.rows : null; S.pbad = r.bad;
+  if (!r.rows.length) toast("읽을 수 있는 줄이 없어요. 학번, 이름, 학년도, 회차, 종목, 기록, 등급 순서인지 확인해 주세요.");
+  render();
+}
+async function loadPaps() { const [g, c] = S.pcls.split("-").map(Number); S.prows = null; S.pedit = {}; render(); S.prows = await call("admin_paps_class", { p_grade: g, p_class: c }); }
+
 /* ---------- 함께 운동하는 선생님 ---------- */
 function aStaff() {
   const b = S.staff;
@@ -334,6 +390,10 @@ async function load(page = S.page) {
       S.classes = await call("admin_classes");
       if (S.classes.length) { if (!S.cls || !S.classes.find(c => c.grade + "-" + c.class === S.cls)) S.cls = S.classes[0].grade + "-" + S.classes[0].class; await loadStudents(); }
     }
+    if (page === "paps") {
+      S.classes = await call("admin_classes");
+      if (S.classes.length) { if (!S.pcls || !S.classes.find(c => c.grade + "-" + c.class === S.pcls)) S.pcls = S.classes[0].grade + "-" + S.classes[0].class; await loadPaps(); }
+    }
     if (page === "staff") S.staff = await call("admin_staff_board");
     if (page === "mission") { [S.missions, S.classes] = await Promise.all([call("admin_missions"), call("admin_classes")]); if (S.mview) await loadSubs(); }
     if (page === "programs" || page === "settings" || page === "sessions") S.cfg = await call("admin_settings");
@@ -429,6 +489,18 @@ document.addEventListener("change", async e => {
   if (id === "lcls") { S.liveClass = e.target.value; try { await loadLive(); } catch (er) { toast(aerr(er)); } render(); }
   if (id === "scls") { S.cls = e.target.value; try { await loadStudents(); } catch (er) { toast(aerr(er)); } render(); }
   if (id === "mcls") { S.mcls = e.target.value; S.msubs = null; render(); try { await loadSubs(); } catch (er) { toast(aerr(er)); } render(); }
+  if (id === "pcls") { S.pcls = e.target.value; try { await loadPaps(); } catch (er) { toast(aerr(er)); } render(); }
+  if (id === "pyear" || id === "pround" || id === "pitem") {
+    if (Object.keys(S.pedit).length && !confirm("저장하지 않은 기록이 있어요. 버리고 바꿀까요?")) { render(); return; }
+    if (id === "pyear") S.pyear = parseInt(e.target.value, 10) || S.pyear; if (id === "pround") S.pround = +e.target.value; if (id === "pitem") S.pitem = e.target.value;
+    S.pedit = {}; render();
+  }
+  if (id === "papsfile" && e.target.files[0]) {
+    const buf = await e.target.files[0].arrayBuffer();
+    let t = new TextDecoder("utf-8").decode(buf);
+    if (t.includes("\ufffd")) { try { t = new TextDecoder("euc-kr").decode(buf); } catch {} }
+    document.getElementById("papsin").value = t; papscheck();
+  }
   if (id === "mk") { const g = document.getElementById("mg"); if (g) g.value = MKIND[e.target.value].def; }
   if (id === "stafffile" && e.target.files[0]) {
     const buf = await e.target.files[0].arrayBuffer();
@@ -449,6 +521,12 @@ function rcheck() {
   if (!r.rows.length) toast("읽을 수 있는 줄이 없어요. 학년, 반, 번호, 이름 순서인지 확인해 주세요.");
   render();
 }
+document.addEventListener("input", e => {
+  const pv = e.target.dataset.pv, pg = e.target.dataset.pg;
+  if (pv) (S.pedit[pv] ||= {}).v = e.target.value.trim();
+  if (pg) (S.pedit[pg] ||= {}).g = e.target.value.trim();
+  if (e.target.id === "papsin") S.ptext = e.target.value;
+});
 document.addEventListener("input", e => { if (e.target.id === "roster") S.rtext = e.target.value; if (e.target.id === "staffin") S.stext = e.target.value; });
 document.addEventListener("click", async e => {
   const b = e.target.closest("[data-act]"); if (!b) return;
@@ -487,6 +565,28 @@ document.addEventListener("click", async e => {
       if (!rows.length) throw new Error("이름을 찾지 못했어요. 한 줄에 한 분씩 이름을 써 주세요.");
       const r = await call("admin_import_staff", { p_rows: rows });
       S.stext = ""; toast(`새로 ${r.added}분 등록${r.same ? `, 이미 있던 ${r.same}분은 그대로` : ""}`); await load("staff");
+    }); break;
+    case "papscheck": papscheck(); break;
+    case "papssave": await busy(async () => {
+      const ids = Object.keys(S.pedit); if (!ids.length) throw new Error("바꾼 기록이 없어요.");
+      const cur = S.pyear * 10 + S.pround, rows = [];
+      for (const id of ids) {
+        const st = S.prows.find(x => x.id === id), now = st.recs.find(r => r.item === S.pitem && ykey(r) === cur), ed = S.pedit[id];
+        const v = ed.v !== undefined ? ed.v : now ? String(now.value) : "", g = ed.g !== undefined ? ed.g : now && now.grade_level ? String(now.grade_level) : "";
+        if (v !== "" && !Number.isFinite(+v)) throw new Error(`${st.num}번 기록이 숫자가 아니에요.`);
+        if (g !== "" && !/^[1-5]$/.test(g)) throw new Error(`${st.num}번 등급은 1~5로 써 주세요.`);
+        if (v === "" && !now) continue;
+        rows.push({ student_no: st.student_no, year: S.pyear, round: S.pround, item: S.pitem, value: v, grade_level: g === "" ? null : +g });
+      }
+      const r = await call("admin_paps_save", { p_rows: rows });
+      toast(`저장 ${r.saved}개${r.removed ? `, 지움 ${r.removed}개` : ""}`); await loadPaps(); render();
+    }); break;
+    case "papsup": await busy(async () => {
+      const rows = S.ppreview; let saved = 0; const miss = [], diff = [];
+      for (let i = 0; i < rows.length; i += 400) { const r = await call("admin_paps_save", { p_rows: rows.slice(i, i + 400) }); saved += r.saved; miss.push(...r.missing); diff.push(...r.name_diff); }
+      S.ppreview = null; S.ptext = "";
+      toast(`기록 ${saved}개를 올렸어요${miss.length ? ` · 명단에 없는 학번 ${[...new Set(miss)].join(", ")}` : ""}${diff.length ? ` · 이름이 달라 뺀 학번 ${[...new Set(diff)].join(", ")}` : ""}`);
+      if (S.pcls) await loadPaps(); render();
     }); break;
     case "rcheck": rcheck(); break;
     case "rup": await busy(async () => {

@@ -174,6 +174,31 @@ function papsRange(it,c,gr){
   if(gr===1) return `${f(c[0])}↓`; if(gr===5) return `${f(c[3]+it.step)}↑`; return `${f(c[gr-2]+it.step)}~${f(c[gr-1])}`;
 }
 
+/* 학생별 PAPS 기록에 쓰는 종목 이름 (기준표에 없는 종목 포함). hi: 클수록 좋은 기록 */
+export const PAPS_REC = {
+  total: { el: "종합", name: "건강체력 점수", unit: "점", hi: true },
+  shuttle: { el: "심폐지구력", name: "왕복오래달리기", unit: "회", hi: true },
+  longrun: { el: "심폐지구력", name: "오래달리기걷기", unit: "분.초", hi: false },
+  step: { el: "심폐지구력", name: "스텝검사", unit: "점", hi: true },
+  reach: { el: "유연성", name: "앉아윗몸앞으로굽히기", unit: "cm", hi: true },
+  flex: { el: "유연성", name: "종합유연성", unit: "점", hi: true },
+  pushup: { el: "근력·근지구력", name: "(무릎대고)팔굽혀펴기", unit: "회", hi: true },
+  curl: { el: "근력·근지구력", name: "윗몸말아올리기", unit: "회", hi: true },
+  grip: { el: "근력·근지구력", name: "악력", unit: "kg", hi: true },
+  run50: { el: "순발력", name: "50m 달리기", unit: "초", hi: false },
+  jump: { el: "순발력", name: "제자리멀리뛰기", unit: "cm", hi: true }
+};
+export const PAPS_KEYS = Object.keys(PAPS_REC);
+/* 종목 이름(한글)이나 키를 키로 바꿔요. 못 찾으면 null */
+export function papsKey(t) {
+  const n = String(t || "").replace(/\s|\(.*?\)|기록/g, "");
+  if (PAPS_REC[n]) return n;
+  for (const k of PAPS_KEYS) { const nm = PAPS_REC[k].name.replace(/\s|\(.*?\)/g, ""); if (nm === n) return k; }
+  if (/총점|종합점수|건강체력점수/.test(n)) return "total";
+  if (/팔굽혀펴기/.test(n)) return "pushup";
+  return null;
+}
+
 /* ---------- 미션 종류 ---------- */
 export const MKIND = {
   walk: { name: "걷기", unit: "보", how: "sensor", tip: "휴대폰을 손에 들거나 주머니에 넣고 걸어요. 다 걸을 때까지 앱 화면은 켜 둬요.", def: 1000 },

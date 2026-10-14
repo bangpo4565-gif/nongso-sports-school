@@ -1,13 +1,13 @@
 // 학생 앱. 모든 기록은 서버 함수(student_*)로만 주고받아요.
 import { rpc, configured, esc, mmss, clock, levelOf, tierOf, fmtDay, fmtTime, fmtDT, toast, deviceId, store, errText,
-  IC, raceHTML, chaseOf, racePeriod, PAPS, papsRange, MKIND, HOWLAB, mTitle, BELL } from "./common.js";
+  IC, raceHTML, chaseOf, racePeriod, PAPS, papsRange, PAPS_REC, PAPS_KEYS, MKIND, HOWLAB, mTitle, BELL } from "./common.js";
 import { createPoseRunner, createWalker, say } from "./motion.js";
 
 const $app = document.getElementById("app");
 const PHOTO = "img/splash.jpg";
 const S = {
   token: store.get("ns_token"), view: "splash", loginTab: "", tab: "home", sub: null,
-  home: null, offset: 0, rank: null, rankMode: "class", raceGrade: null, races: {}, hist: null,
+  home: null, offset: 0, rank: null, rankMode: "class", raceGrade: null, races: {}, hist: null, paps: null,
   msg: null, done: null, scanning: false, pick: null, mid: null, mcur: 0, papsG: null, papsS: "M", busy: false
 };
 const serverNow = () => Date.now() + S.offset;
@@ -241,7 +241,7 @@ function vRank() {
 function subHead(eb, title) { return `${topline()}<button class="back" data-act="sub" data-v="">${IC.back} 더보기</button><div class="pagehead"><span class="eyebrow">${eb}</span><h2>${title}</h2></div>`; }
 function vMore() {
   const n = openMissions().length;
-  const items = [["mission", "오늘의 미션", n ? `남은 미션 ${n}개` : "선생님이 낸 미션 하기"], ["pops", "POPS 기준표", "중학교 PAPS 등급 기준"], ["history", "활동 기록", "내 출석과 XP 내역"], ["install", "휴대폰에 설치", "홈 화면에 앱 아이콘 만들기"], ["settings", "설정", "비밀번호 바꾸기, 로그아웃"]];
+  const items = [["mission", "오늘의 미션", n ? `남은 미션 ${n}개` : "선생님이 낸 미션 하기"], ["pops", "POPS", "내 체력 기록과 등급 기준"], ["history", "활동 기록", "내 출석과 XP 내역"], ["install", "휴대폰에 설치", "홈 화면에 앱 아이콘 만들기"], ["settings", "설정", "비밀번호 바꾸기, 로그아웃"]];
   return `<div class="stack">${topline()}<div class="pagehead"><span class="eyebrow">MORE</span><h2>더보기</h2></div>
     <div class="menu">${items.map(i => `<button data-act="sub" data-v="${i[0]}"><span class="k">${i[1]}${i[0] === "mission" && n ? " " + BELL(n) : ""}</span><span class="d">${i[2]}</span><span class="muted">›</span></button>`).join("")}</div></div>`;
 }
@@ -281,8 +281,9 @@ function vPops() {
   const keys = ["shuttle", "curl", "reach", "run50", "jump", "grip"];
   const rows = keys.map(key => { const it = PAPS.items[key], cut = it.cut[g + sx]; return `<tr><td><b>${it.el}</b><br><span class="muted small">${it.name}${it.unit ? " (" + it.unit + ")" : ""}</span></td>${[1, 2, 3, 4, 5].map(gr => `<td class="r num">${papsRange(it, cut, gr)}</td>`).join("")}</tr>`; }).join("");
   const c = PAPS.bmi[g + sx], f = x => (+x).toFixed(1);
-  return `<div class="stack">${subHead("POPS · 학생건강체력평가", "PAPS 등급 기준표")}
-    <div class="msg info small" style="font-weight:500">내 체력 기록은 선생님이 입력하면 여기에서 볼 수 있게 준비하고 있어요.</div>
+  return `<div class="stack">${subHead("POPS · 학생건강체력평가", "내 체력 기록")}
+    ${myPaps()}
+    <h3 style="font-size:17px;margin-top:6px">PAPS 등급 기준표</h3>
     <section class="card stack" style="gap:12px">
       <div class="gtabs">${[1, 2, 3].map(x => `<button data-act="papsg" data-v="${x}" class="${x === g ? "on" : ""}">중${x}</button>`).join("")}</div>
       <div class="seg"><button data-act="papss" data-v="M" class="${sx === "M" ? "on" : ""}">남</button><button data-act="papss" data-v="F" class="${sx === "F" ? "on" : ""}">여</button></div>
@@ -291,6 +292,40 @@ function vPops() {
         <tr><td><b>체질량지수</b></td>${[1, 2, 3, 4, 5].map(i => `<td class="r num">${i === 1 ? `${f(c[0])}↓` : i === 5 ? `${f(c[3] + 0.1)}↑` : `${f(c[i - 2] + 0.1)}~${f(c[i - 1])}`}</td>`).join("")}</tr></tbody></table></div>
       <p class="small muted" style="margin:0">↑는 이상, ↓는 이하예요. 2025년 공개 기준표를 옮긴 것이라 학교 나이스 기준표와 다를 수 있어요.</p>
     </section></div>`;
+}
+
+/* 내 PAPS 기록: 종목마다 최근 기록, 등급, 지난번과 비교, 내 최고 기록. 다른 학생과는 비교하지 않아요 */
+const pkey = r => r.year * 10 + r.round, plab = r => `${r.year} ${r.round}차`;
+function papsSpark(recs, hi) {
+  if (recs.length < 2) return "";
+  const W = 120, H = 34, vs = recs.map(r => +r.value), lo = Math.min(...vs), up = Math.max(...vs), sp = up - lo || 1;
+  const pts = vs.map((v, i) => [4 + i * (W - 8) / (vs.length - 1), H - 4 - (hi ? v - lo : up - v) / sp * (H - 8)]);
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><polyline points="${pts.map(p => p.join(",")).join(" ")}" fill="none" stroke="var(--data)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>${pts.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="${i === pts.length - 1 ? 3.5 : 2.5}" fill="${i === pts.length - 1 ? "var(--data)" : "var(--ink)"}" stroke="var(--data)" stroke-width="1.5"/>`).join("")}</svg>`;
+}
+function myPaps() {
+  const P = S.paps;
+  if (!P) return '<div class="card muted">불러오는 중이에요…</div>';
+  if (!P.length) return '<div class="msg info small" style="font-weight:500">아직 내 체력 기록이 없어요. 선생님이 기록을 올리면 여기에서 볼 수 있어요.</div>';
+  const by = k => P.filter(r => r.item === k).sort((a, b) => pkey(a) - pkey(b));
+  const tot = by("total"), last = tot[tot.length - 1];
+  const fmt = v => (+v).toLocaleString("ko-KR", { maximumFractionDigits: 2 });
+  const head = last ? `<section class="card"><div class="row between"><span class="eyebrow">${plab(last)} · 건강체력평가</span>${last.grade_level ? `<span class="chip">종합 ${last.grade_level}등급</span>` : ""}</div>
+    <div class="row" style="align-items:flex-end;gap:8px;margin-top:8px"><b class="num" style="font:800 44px/1 var(--display);color:var(--court)">${fmt(last.value)}</b><span class="muted" style="padding-bottom:6px">점</span>
+    ${tot.length > 1 ? (() => { const d = +last.value - +tot[tot.length - 2].value; return d ? `<span class="small" style="padding-bottom:8px;color:${d > 0 ? "var(--good)" : "var(--muted)"}">${d > 0 ? "▲" : "▼"} ${fmt(Math.abs(d))}점 (${plab(tot[tot.length - 2])}보다)</span>` : ""; })() : ""}</div></section>` : "";
+  const items = PAPS_KEYS.filter(k => k !== "total").map(k => {
+    const rs = by(k); if (!rs.length) return "";
+    const it = PAPS_REC[k], L = rs[rs.length - 1], prev = rs[rs.length - 2];
+    const best = rs.reduce((b, r) => (it.hi ? +r.value > +b.value : +r.value < +b.value) ? r : b, rs[0]);
+    const d = prev ? +L.value - +prev.value : 0, good = it.hi ? d > 0 : d < 0;
+    const pb = prev && best === L && d !== 0;
+    return `<div class="card" style="padding:14px 16px"><div class="row between" style="gap:12px">
+      <div style="min-width:0"><span class="eyebrow">${it.el}</span><div style="font-weight:700;margin-top:4px">${it.name}</div>
+        <div class="row" style="gap:8px;margin-top:6px;align-items:baseline;flex-wrap:wrap"><b class="num" style="font-size:24px">${fmt(L.value)}</b><span class="small muted">${it.unit}</span>${L.grade_level ? `<span class="chip">${L.grade_level}등급</span>` : ""}${pb ? '<span class="chip" style="color:var(--gold);border-color:rgba(255,209,102,.4)">최고 기록 <small style="opacity:.7">PB</small></span>' : ""}</div>
+        <div class="small muted" style="margin-top:4px">${prev ? (d ? `<span style="color:${good ? "var(--good)" : "var(--muted)"}">${d > 0 ? "▲" : "▼"} ${fmt(Math.abs(d))}${it.unit}</span> · ${plab(prev)} ${fmt(prev.value)} → ${plab(L)}` : `${plab(prev)}과 같아요`) : `${plab(L)} 기록`}${prev && best !== L ? ` · 내 최고 ${fmt(best.value)}` : ""}</div></div>
+      ${papsSpark(rs, it.hi)}</div></div>`;
+  }).join("");
+  return `${head}<div class="stack" style="gap:10px">${items}</div>
+    <p class="small muted" style="margin:0">내 기록은 나와 선생님만 볼 수 있어요. 친구와 비교하지 않고, 지난번의 나와 비교해요.</p>`;
 }
 
 /* ---------- 미션 ---------- */
@@ -450,6 +485,7 @@ document.addEventListener("click", async e => {
       S.tab = "more"; S.sub = v || null; render(); window.scrollTo(0, 0);
       if (v === "history") call("student_history").then(h => { S.hist = h; render(); }).catch(() => {});
       if (v === "mission") loadHome().then(render).catch(() => {});
+      if (v === "pops") call("student_paps").then(r => { S.paps = r; render(); }).catch(() => {});
       break;
     case "papsg": S.papsG = +v; render(); break;
     case "papss": S.papsS = v; render(); break;

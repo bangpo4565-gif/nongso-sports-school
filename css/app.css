@@ -352,3 +352,4 @@ h1,h2,h3{text-wrap:balance;margin:0}
 .ptbl input:not([type=checkbox]){background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--fg);font:inherit;width:100%}
 .main select{color:var(--fg)}
 textarea:focus-visible{outline:2px solid var(--data);outline-offset:2px}
+.pin{background:var(--panel);border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:6px 8px;font:600 14px var(--display)}

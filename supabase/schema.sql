@@ -151,6 +151,20 @@ create table if not exists mission_subs (
   unique (mission_id, student_id)
 );
 
+-- PAPS(학생건강체력평가) 기록. 학생, 학년도, 회차, 종목, 기록, 등급만 남겨요 (성별·생년월일·키·몸무게는 저장하지 않아요)
+create table if not exists paps_records (
+  id bigserial primary key,
+  student_id uuid not null references students on delete cascade,
+  year int not null check (year between 2015 and 2100),
+  round int not null default 1 check (round between 1 and 4),
+  item text not null check (item ~ '^[a-z0-9_]{2,20}$'),
+  value numeric(7,2) not null,
+  grade_level int check (grade_level between 1 and 5),
+  entered_by uuid references teachers on delete set null,
+  updated_at timestamptz not null default now(),
+  unique (student_id, year, round, item)
+);
+
 -- ---------- 권한 도우미 ----------
 create or replace function my_role() returns text language sql stable security definer set search_path = public, extensions as
 $$ select role from teachers where id = auth.uid() $$;
@@ -199,6 +213,7 @@ alter table attendance enable row level security;
 alter table xp_ledger enable row level security;
 alter table missions enable row level security;
 alter table mission_subs enable row level security;
+alter table paps_records enable row level security;
 
 drop policy if exists settings_read on settings;   create policy settings_read on settings for select using (is_staff());
 drop policy if exists settings_write on settings;  create policy settings_write on settings for update using (is_owner()) with check (is_owner());
@@ -213,6 +228,7 @@ drop policy if exists att_read on attendance;      create policy att_read on att
 drop policy if exists xp_read on xp_ledger;        create policy xp_read on xp_ledger for select using (is_staff());
 drop policy if exists missions_read on missions;   create policy missions_read on missions for select using (is_staff());
 drop policy if exists msubs_read on mission_subs;  create policy msubs_read on mission_subs for select using (is_staff());
+drop policy if exists paps_read on paps_records;   create policy paps_read on paps_records for select using (is_staff());
 -- student_secrets, student_sessions, qr_secrets 는 규칙이 없어서 아무도 직접 읽거나 쓸 수 없어요.
 
 -- ---------- XP ----------
@@ -804,13 +820,69 @@ begin
       from students s where s.grade = 0) x), '[]'));
 end $$;
 
+-- ---------- PAPS ----------
+-- 선생님: 기록 저장. 한 줄 = {student_no, name?, year, round, item, value, grade_level}. value가 비어 있으면 그 기록을 지워요
+create or replace function admin_paps_save(p_rows jsonb) returns json
+language plpgsql security definer set search_path = public, extensions as $$
+declare r jsonb; sid uuid; sname text; n_save int := 0; n_del int := 0; miss text[] := '{}'; diff text[] := '{}'; v numeric; gl int; y int; rd int; it text;
+begin
+  perform need_staff();
+  for r in select * from jsonb_array_elements(p_rows) loop
+    sid := null;
+    select id, name into sid, sname from students where student_no = trim(r ->> 'student_no');
+    if sid is null then miss := array_append(miss, coalesce(r ->> 'student_no', '?')); continue; end if;
+    -- 이름을 같이 보냈으면 명단 이름과 같을 때만 저장해요 (학번이 밀린 파일을 막으려고)
+    if coalesce(r ->> 'name', '') <> '' and regexp_replace(r ->> 'name', '\s', '', 'g') <> regexp_replace(sname, '\s', '', 'g') then
+      diff := array_append(diff, r ->> 'student_no'); continue;
+    end if;
+    y := (r ->> 'year')::int; rd := coalesce((r ->> 'round')::int, 1); it := r ->> 'item';
+    if y is null or it is null or it !~ '^[a-z0-9_]{2,20}$' then continue; end if;
+    v := nullif(trim(coalesce(r ->> 'value', '')), '')::numeric;
+    gl := nullif(trim(coalesce(r ->> 'grade_level', '')), '')::int;
+    if gl is not null and gl not between 1 and 5 then gl := null; end if;
+    if v is null then
+      delete from paps_records where student_id = sid and year = y and round = rd and item = it;
+      if found then n_del := n_del + 1; end if;
+    else
+      insert into paps_records (student_id, year, round, item, value, grade_level, entered_by)
+      values (sid, y, rd, it, v, gl, auth.uid())
+      on conflict (student_id, year, round, item) do update
+        set value = excluded.value, grade_level = excluded.grade_level, entered_by = excluded.entered_by, updated_at = now();
+      n_save := n_save + 1;
+    end if;
+  end loop;
+  return json_build_object('saved', n_save, 'removed', n_del, 'missing', to_json(miss), 'name_diff', to_json(diff));
+end $$;
+
+-- 선생님: 한 반 학생과 그 학생들의 모든 PAPS 기록 (학급 단위 입력 화면)
+create or replace function admin_paps_class(p_grade int, p_class int) returns json
+language plpgsql stable security definer set search_path = public, extensions as $$
+begin
+  perform need_staff();
+  return coalesce((select json_agg(x order by x.num) from (
+    select s.id, s.student_no, s.num, s.name,
+      coalesce((select json_agg(json_build_object('year', p.year, 'round', p.round, 'item', p.item, 'value', p.value, 'grade_level', p.grade_level) order by p.year, p.round)
+                from paps_records p where p.student_id = s.id), '[]') as recs
+    from students s where s.grade = p_grade and s.class = p_class and s.active) x), '[]');
+end $$;
+
+-- 학생: 내 기록만
+create or replace function student_paps(p_token uuid) returns json
+language plpgsql stable security definer set search_path = public, extensions as $$
+declare s students;
+begin
+  s := session_student(p_token);
+  return coalesce((select json_agg(json_build_object('year', year, 'round', round, 'item', item, 'value', value, 'grade_level', grade_level) order by year, round)
+    from paps_records where student_id = s.id), '[]');
+end $$;
+
 -- ---------- 함수 실행 권한 ----------
 -- 학생은 로그인 없이(anon) student_* 와 race_board 만, 선생님(authenticated)은 admin_* 도 (안에서 다시 확인해요)
 revoke execute on all functions in schema public from public, anon, authenticated;
 grant execute on function student_login(text, text), student_signup(text, text, text), student_logout(uuid),
   student_change_pw(uuid, text, text), student_home(uuid), student_history(uuid), student_rank(uuid),
   student_race(uuid, int), student_scan(uuid, text, text, double precision, double precision),
-  student_mission_submit(uuid, uuid, int, int, text), race_board(int) to anon, authenticated;
+  student_mission_submit(uuid, uuid, int, int, text), student_paps(uuid), race_board(int) to anon, authenticated;
 -- 표 접근 규칙이 쓰는 도우미는 모두 실행할 수 있어야 해요 (로그인 안 했으면 false)
 grant execute on function is_staff(), is_owner(), my_role() to anon, authenticated;
 grant execute on function admin_open_session(int, int), admin_close_session(uuid), admin_reopen_session(uuid), admin_qr(uuid, text),
@@ -818,4 +890,5 @@ grant execute on function admin_open_session(int, int), admin_close_session(uuid
   admin_classes(), admin_reset_password(uuid), admin_set_active(uuid, boolean), admin_adjust_xp(uuid, int, text),
   admin_create_mission(text, int, int, int, int, timestamptz, timestamptz), admin_delete_mission(uuid), admin_missions(),
   admin_mission_subs(uuid, int, int), admin_dashboard(), admin_settings(), admin_save_settings(jsonb),
-  admin_set_teacher(uuid, text), admin_save_program(jsonb), admin_import_staff(jsonb), admin_staff_board() to authenticated;
+  admin_set_teacher(uuid, text), admin_save_program(jsonb), admin_import_staff(jsonb), admin_staff_board(),
+  admin_paps_save(jsonb), admin_paps_class(int, int) to authenticated;
