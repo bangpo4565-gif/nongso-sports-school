@@ -1,6 +1,6 @@
 // 선생님 화면. 로그인은 Supabase 계정(이메일), 기록은 모두 admin_* 서버 함수로만 바꿔요.
 import { SUPABASE_URL, SUPABASE_KEY, configured, esc, mmss, clock, levelOf, fmtDay, fmtTime, fmtDT, toast,
-  raceHTML, racePeriod, MKIND, HOWLAB, mTitle, PAPS_REC, PAPS_KEYS, papsKey } from "./common.js";
+  raceHTML, racePeriod, MKIND, HOWLAB, mTitle, PAPS_REC, PAPS_USE, papsKey, papsGradeNum, PAPS } from "./common.js";
 
 const $app = document.getElementById("app");
 const sb = configured() ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }) : null;
@@ -220,14 +220,14 @@ function aPaps() {
     <div class="field" style="min-width:150px"><label for="pcls">학급</label><select id="pcls">${(cl || []).map(c => `<option value="${c.grade}-${c.class}" ${S.pcls === c.grade + "-" + c.class ? "selected" : ""}>${c.grade}학년 ${c.class}반</option>`).join("")}</select></div>
     <div class="field" style="width:110px"><label for="pyear">학년도</label><input id="pyear" type="number" min="2015" max="2100" value="${S.pyear}"></div>
     <div class="field" style="width:100px"><label for="pround">회차</label><select id="pround">${[1, 2, 3, 4].map(n => `<option value="${n}" ${S.pround === n ? "selected" : ""}>${n}차</option>`).join("")}</select></div>
-    <div class="field" style="min-width:200px"><label for="pitem">종목</label><select id="pitem">${PAPS_KEYS.map(k => `<option value="${k}" ${S.pitem === k ? "selected" : ""}>${PAPS_REC[k].el} · ${PAPS_REC[k].name} (${PAPS_REC[k].unit})</option>`).join("")}</select></div></div>`;
+    <div class="field" style="min-width:200px"><label for="pitem">종목</label><select id="pitem">${PAPS_USE.map(k => `<option value="${k}" ${S.pitem === k ? "selected" : ""}>${PAPS_REC[k].el} · ${PAPS_REC[k].name} (${PAPS_REC[k].unit})</option>`).join("")}</select></div></div>`;
   const rows = S.prows;
   const table = !cl ? loading : !cl.length ? '<div class="card muted">먼저 학생 · 명단에서 명단을 올려 주세요.</div>' : !rows ? loading :
     `<div class="card scroll" style="padding:6px 10px"><table class="tbl"><thead><tr><th>번호</th><th>이름</th><th class="r">기록 (${it.unit})</th><th class="r">등급</th><th class="r">이전 기록</th><th class="r">변화</th></tr></thead><tbody>
     ${rows.map(st => {
       const mine = st.recs.filter(r => r.item === S.pitem), now = mine.find(r => ykey(r) === cur), prev = mine.filter(r => ykey(r) < cur).pop();
       const ed = S.pedit[st.id] || {}, v = ed.v !== undefined ? ed.v : now ? +now.value : "", g = ed.g !== undefined ? ed.g : now && now.grade_level ? now.grade_level : "";
-      const d = v !== "" && prev ? +v - +prev.value : null, better = d != null && (it.hi ? d > 0 : d < 0);
+      const d = v !== "" && prev ? +v - +prev.value : null, better = d != null && it.hi != null && (it.hi ? d > 0 : d < 0);
       return `<tr><td class="num">${st.num}</td><td>${esc(st.name)}</td>
         <td class="r"><input class="pin" data-pv="${st.id}" value="${v}" inputmode="decimal" aria-label="${st.num}번 기록" style="width:90px;text-align:right"></td>
         <td class="r"><input class="pin" data-pg="${st.id}" value="${g}" inputmode="numeric" aria-label="${st.num}번 등급" style="width:56px;text-align:right"></td>
@@ -235,7 +235,7 @@ function aPaps() {
         <td class="r num">${d == null || d === 0 ? "" : `<span style="color:${better ? "var(--good)" : "var(--muted)"}">${d > 0 ? "▲" : "▼"} ${+Math.abs(d).toFixed(2)}</span>`}</td></tr>`;
     }).join("")}</tbody></table></div>
     <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn sm teal" data-act="papssave" style="width:auto">이 종목 저장</button>
-      <span class="small muted">기록 칸을 비우고 저장하면 그 기록을 지워요. 등급은 나이스에 나온 등급을 그대로 써요(1~5).</span></div>`;
+      <span class="small muted">기록 칸을 비우고 저장하면 그 기록을 지워요. ${S.pitem === "bmi" ? `BMI 판정은 숫자로 써요: ${PAPS.bmiNames.map((n, i) => `${i + 1} ${n}`).join(", ")}.` : "등급은 나이스에 나온 등급을 그대로 써요(1~5)."}</span></div>`;
   const pv = S.ppreview;
   return head("학생은 자기 기록만 볼 수 있어요. 다른 학생과 비교하지 않아요", "POPS 기록") + sel + table +
     `<section class="card stack" style="margin-top:16px"><span class="eyebrow">한꺼번에 올리기</span>
@@ -253,10 +253,10 @@ function parsePaps(text) {
     if (/학번/.test(line) && /종목/.test(line)) { cols = {}; parts.forEach((p, i) => { for (const k of ["학번", "이름", "학년도", "회차", "종목", "기록", "등급"]) if (p.includes(k)) cols[k] = i; }); continue; }
     const at = (k, i) => parts[cols && cols[k] != null ? cols[k] : i] ?? "";
     const no = at("학번", 0).replace(/[^0-9]/g, ""), item = papsKey(at("종목", 4)), year = parseInt(at("학년도", 2), 10), round = parseInt(at("회차", 3), 10) || 1;
-    const value = at("기록", 5).replace(/[^0-9.\-]/g, ""), g = at("등급", 6).replace(/[^0-9]/g, "");
+    const value = at("기록", 5).replace(/[^0-9.\-]/g, ""), g = papsGradeNum(item, at("등급", 6));
     if (!/^\d{5}$/.test(no) || !item || !(year >= 2015 && year <= 2100) || value === "" || !Number.isFinite(+value)) { bad++; continue; }
     const k = [no, year, round, item].join("|"); if (seen.has(k)) continue; seen.add(k);
-    out.push({ student_no: no, name: at("이름", 1).replace(/\s/g, ""), year, round, item, value, grade_level: g ? +g : null });
+    out.push({ student_no: no, name: at("이름", 1).replace(/\s/g, ""), year, round, item, value, grade_level: g });
   }
   return { rows: out, bad };
 }

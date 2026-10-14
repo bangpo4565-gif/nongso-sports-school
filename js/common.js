@@ -186,9 +186,20 @@ export const PAPS_REC = {
   curl: { el: "근력·근지구력", name: "윗몸말아올리기", unit: "회", hi: true },
   grip: { el: "근력·근지구력", name: "악력", unit: "kg", hi: true },
   run50: { el: "순발력", name: "50m 달리기", unit: "초", hi: false },
-  jump: { el: "순발력", name: "제자리멀리뛰기", unit: "cm", hi: true }
+  jump: { el: "순발력", name: "제자리멀리뛰기", unit: "cm", hi: true },
+  bmi: { el: "비만", name: "BMI(체질량지수)", unit: "kg/㎡", hi: null }
 };
 export const PAPS_KEYS = Object.keys(PAPS_REC);
+/* 우리 학교가 실제로 측정하는 종목만 화면에 보여요 */
+export const PAPS_USE = ["total", "shuttle", "reach", "curl", "jump", "bmi"];
+/* 등급 칸 글자: BMI는 마름·정상… 이름, 나머지는 N등급 */
+export const papsGradeName = (item, g) => !g ? "" : item === "bmi" ? (PAPS.bmiNames[g - 1] || "") : `${g}등급`;
+/* 등급 칸에 쓴 글자를 숫자로: BMI는 마름=1 … 고도비만=5 */
+export function papsGradeNum(item, t) {
+  const s = String(t || "").replace(/\s/g, "");
+  if (item === "bmi") { const i = PAPS.bmiNames.indexOf(s); if (i >= 0) return i + 1; }
+  const n = s.replace(/[^0-9]/g, ""); return n && +n >= 1 && +n <= 5 ? +n : null;
+}
 /* 종목 이름(한글)이나 키를 키로 바꿔요. 못 찾으면 null */
 export function papsKey(t) {
   const n = String(t || "").replace(/\s|\(.*?\)|기록/g, "");
@@ -196,6 +207,7 @@ export function papsKey(t) {
   for (const k of PAPS_KEYS) { const nm = PAPS_REC[k].name.replace(/\s|\(.*?\)/g, ""); if (nm === n) return k; }
   if (/총점|종합점수|건강체력점수/.test(n)) return "total";
   if (/팔굽혀펴기/.test(n)) return "pushup";
+  if (/^(BMI|bmi|체질량지수|비만)/.test(n)) return "bmi";
   return null;
 }
 

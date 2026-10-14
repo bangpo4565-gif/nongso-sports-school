@@ -1,6 +1,6 @@
 // 학생 앱. 모든 기록은 서버 함수(student_*)로만 주고받아요.
 import { rpc, configured, esc, mmss, clock, levelOf, tierOf, fmtDay, fmtTime, fmtDT, toast, deviceId, store, errText,
-  IC, raceHTML, chaseOf, racePeriod, PAPS, papsRange, PAPS_REC, PAPS_KEYS, MKIND, HOWLAB, mTitle, BELL } from "./common.js";
+  IC, raceHTML, chaseOf, racePeriod, PAPS, papsRange, PAPS_REC, PAPS_USE, papsGradeName, MKIND, HOWLAB, mTitle, BELL } from "./common.js";
 import { createPoseRunner, createWalker, say } from "./motion.js";
 
 const $app = document.getElementById("app");
@@ -278,7 +278,7 @@ function vSub() {
 }
 function vPops() {
   const g = S.papsG || S.home.me.grade || 1, sx = S.papsS;
-  const keys = ["shuttle", "curl", "reach", "run50", "jump", "grip"];
+  const keys = ["shuttle", "reach", "curl", "jump"];
   const rows = keys.map(key => { const it = PAPS.items[key], cut = it.cut[g + sx]; return `<tr><td><b>${it.el}</b><br><span class="muted small">${it.name}${it.unit ? " (" + it.unit + ")" : ""}</span></td>${[1, 2, 3, 4, 5].map(gr => `<td class="r num">${papsRange(it, cut, gr)}</td>`).join("")}</tr>`; }).join("");
   const c = PAPS.bmi[g + sx], f = x => (+x).toFixed(1);
   return `<div class="stack">${subHead("POPS · 학생건강체력평가", "내 체력 기록")}
@@ -312,17 +312,17 @@ function myPaps() {
   const head = last ? `<section class="card"><div class="row between"><span class="eyebrow">${plab(last)} · 건강체력평가</span>${last.grade_level ? `<span class="chip">종합 ${last.grade_level}등급</span>` : ""}</div>
     <div class="row" style="align-items:flex-end;gap:8px;margin-top:8px"><b class="num" style="font:800 44px/1 var(--display);color:var(--court)">${fmt(last.value)}</b><span class="muted" style="padding-bottom:6px">점</span>
     ${tot.length > 1 ? (() => { const d = +last.value - +tot[tot.length - 2].value; return d ? `<span class="small" style="padding-bottom:8px;color:${d > 0 ? "var(--good)" : "var(--muted)"}">${d > 0 ? "▲" : "▼"} ${fmt(Math.abs(d))}점 (${plab(tot[tot.length - 2])}보다)</span>` : ""; })() : ""}</div></section>` : "";
-  const items = PAPS_KEYS.filter(k => k !== "total").map(k => {
+  const items = PAPS_USE.filter(k => k !== "total").map(k => {
     const rs = by(k); if (!rs.length) return "";
-    const it = PAPS_REC[k], L = rs[rs.length - 1], prev = rs[rs.length - 2];
+    const it = PAPS_REC[k], L = rs[rs.length - 1], prev = rs[rs.length - 2], neutral = it.hi == null;
     const best = rs.reduce((b, r) => (it.hi ? +r.value > +b.value : +r.value < +b.value) ? r : b, rs[0]);
-    const d = prev ? +L.value - +prev.value : 0, good = it.hi ? d > 0 : d < 0;
-    const pb = prev && best === L && d !== 0;
+    const d = prev ? +L.value - +prev.value : 0, good = !neutral && (it.hi ? d > 0 : d < 0);
+    const pb = !neutral && prev && best === L && d !== 0;
     return `<div class="card" style="padding:14px 16px"><div class="row between" style="gap:12px">
       <div style="min-width:0"><span class="eyebrow">${it.el}</span><div style="font-weight:700;margin-top:4px">${it.name}</div>
-        <div class="row" style="gap:8px;margin-top:6px;align-items:baseline;flex-wrap:wrap"><b class="num" style="font-size:24px">${fmt(L.value)}</b><span class="small muted">${it.unit}</span>${L.grade_level ? `<span class="chip">${L.grade_level}등급</span>` : ""}${pb ? '<span class="chip" style="color:var(--gold);border-color:rgba(255,209,102,.4)">최고 기록 <small style="opacity:.7">PB</small></span>' : ""}</div>
-        <div class="small muted" style="margin-top:4px">${prev ? (d ? `<span style="color:${good ? "var(--good)" : "var(--muted)"}">${d > 0 ? "▲" : "▼"} ${fmt(Math.abs(d))}${it.unit}</span> · ${plab(prev)} ${fmt(prev.value)} → ${plab(L)}` : `${plab(prev)}과 같아요`) : `${plab(L)} 기록`}${prev && best !== L ? ` · 내 최고 ${fmt(best.value)}` : ""}</div></div>
-      ${papsSpark(rs, it.hi)}</div></div>`;
+        <div class="row" style="gap:8px;margin-top:6px;align-items:baseline;flex-wrap:wrap"><b class="num" style="font-size:24px">${fmt(L.value)}</b><span class="small muted">${it.unit}</span>${L.grade_level ? `<span class="chip">${papsGradeName(k, L.grade_level)}</span>` : ""}${pb ? '<span class="chip" style="color:var(--gold);border-color:rgba(255,209,102,.4)">최고 기록 <small style="opacity:.7">PB</small></span>' : ""}</div>
+        <div class="small muted" style="margin-top:4px">${prev ? (d ? `<span style="color:${good ? "var(--good)" : "var(--muted)"}">${d > 0 ? "▲" : "▼"} ${fmt(Math.abs(d))}${it.unit}</span> · ${plab(prev)} ${fmt(prev.value)} → ${plab(L)}` : `${plab(prev)}과 같아요`) : `${plab(L)} 기록`}${!neutral && prev && best !== L ? ` · 내 최고 ${fmt(best.value)}` : ""}</div></div>
+      ${papsSpark(rs, it.hi !== false)}</div></div>`;
   }).join("");
   return `${head}<div class="stack" style="gap:10px">${items}</div>
     <p class="small muted" style="margin:0">내 기록은 나와 선생님만 볼 수 있어요. 친구와 비교하지 않고, 지난번의 나와 비교해요.</p>`;
