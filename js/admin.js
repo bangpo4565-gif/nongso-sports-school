@@ -25,7 +25,7 @@ async function call(fn, args = {}) {
   return data;
 }
 const today = () => new Date().toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" });
-const tgt = (g, c) => g === 0 ? "선생님" : g ? `${g}학년${c ? ` ${c}반` : " 전체"}` : "전교생";
+const tgt = (g, c) => g === 0 ? "선생님" : g ? `${g}학년${c ? ` ${c}반` : " 전체"}` : "전교생 + 선생님";
 /* 미션 제출 현황에서 고를 수 있는 반: 전교생·선생님 미션이면 선생님(0-0)도 넣어요 */
 const mOpts = m => m.target_grade === 0 ? [{ grade: 0, class: 0 }] : [...(S.classes || []).filter(c => (!m.target_grade || c.grade === m.target_grade) && (!m.target_class || c.class === m.target_class)), ...(m.target_grade == null ? [{ grade: 0, class: 0 }] : [])];
 const isOwner = () => S.me && S.me.role === "owner";
@@ -98,7 +98,7 @@ function aSessions() {
       <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:12px;align-items:flex-end">
         <div class="field" style="min-width:200px;flex:1"><label for="sprog">프로그램</label><select id="sprog">${progs.map(p => `<option value="${p.id}">${esc(p.name)} · 최소 ${mmss(p.min_seconds)} · +${p.xp} XP</option>`).join("")}</select></div>
         <div class="field" style="min-width:150px"><label for="ssport">종목 (운동 도감)</label><select id="ssport"><option value="">프로그램 기본 종목</option>${(S.badges?.sports || []).filter(x => x.active).map(x => `<option value="${x.id}">${x.icon} ${esc(x.name)}</option>`).join("")}</select></div>
-        <div class="field" style="min-width:140px"><label for="sgrade">대상</label><select id="sgrade"><option value="">전교생</option><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option></select></div>
+        <div class="field" style="min-width:140px"><label for="sgrade">대상</label><select id="sgrade"><option value="">전교생 + 선생님</option><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option></select></div>
         <button class="btn" data-act="sopen" style="width:auto">열고 QR 띄우기</button></div></section>
     <div class="card scroll" style="padding:6px 10px">${!rows ? loading : !rows.length ? '<p class="muted">최근 2주 동안 연 출석이 없어요.</p>' :
       `<table class="tbl"><thead><tr><th>날짜</th><th>열린 시각</th><th>프로그램</th><th>대상</th><th class="r">완료</th><th class="r">활동 중</th><th>상태</th><th class="r"></th></tr></thead><tbody>
@@ -107,7 +107,7 @@ function aSessions() {
         <td class="r" style="white-space:nowrap"><button class="btn sm ghost" data-act="golive" data-v="${s.id}">실시간</button>
         ${s.closed_at ? (s.day === seoulDate() ? `<button class="btn sm ghost" data-act="sreopen" data-v="${s.id}">다시 열기</button>` : "") : `<button class="btn sm ghost" data-act="goqr" data-v="${s.id}">QR</button> <button class="btn sm" data-act="sclose" data-v="${s.id}">닫기</button>`}</td></tr>`).join("")}
       </tbody></table>`}</div>
-    <p class="small muted">닫으면 아직 운동 완료 QR을 찍지 않은 학생은 미완료가 돼요. 오늘 연 세션은 다시 열 수 있어요.</p>`;
+    <p class="small muted">선생님은 대상을 몇 학년으로 골라도 함께 출석할 수 있어요. 닫으면 아직 운동 완료 QR을 찍지 않은 학생은 미완료가 돼요. 오늘 연 세션은 다시 열 수 있어요.</p>`;
 }
 const seoulDate = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 
@@ -432,7 +432,7 @@ function aChal() {
         <div class="field"><label for="cx">보상 XP</label><input id="cx" type="number" min="0" max="200" value="20"></div>
         <div class="field"><label for="cf">시작일</label><input id="cf" type="date" value="${mon}" data-mon="${mon}" data-sun="${sun}" data-today="${t}"></div>
         <div class="field"><label for="ce">마지막 날</label><input id="ce" type="date" value="${sun}"></div>
-        <div class="field"><label for="ctg">대상 학년</label><select id="ctg"><option value="">전교생</option><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option></select></div>
+        <div class="field"><label for="ctg">대상 학년</label><select id="ctg"><option value="">전교생 + 선생님</option><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option></select></div>
         <div class="field"><label for="ctc">반</label><select id="ctc"><option value="">학년 전체</option>${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}반</option>`).join("")}</select></div>
         <button class="btn" data-act="cadd" style="align-self:end">도전 만들기</button></div>
       <p class="small muted" style="margin:10px 0 0">우리 반 공동목표는 반 학생 모두의 기록을 더해서 세고, 학년을 꼭 골라야 해요. 목표를 채우면 학생이 앱에서 보상 받기를 눌러 XP를 받아요 (기간이 끝나고 3일까지).</p></section>
