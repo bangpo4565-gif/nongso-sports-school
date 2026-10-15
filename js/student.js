@@ -252,12 +252,41 @@ function externalUrl(ia) {
 function subHead(eb, title) { return `${topline()}<button class="back" data-act="sub" data-v="">${IC.back} 더보기</button><div class="pagehead"><span class="eyebrow">${eb}</span><h2>${title}</h2></div>`; }
 function vMore() {
   const n = openMissions().length;
-  const items = [["mission", "오늘의 미션", n ? `남은 미션 ${n}개` : "선생님이 낸 미션 하기"], ["pops", "POPS", "내 체력 기록과 등급 기준"], ["history", "활동 기록", "내 출석과 XP 내역"], ["install", "휴대폰에 설치", "홈 화면에 앱 아이콘 만들기"], ["settings", "설정", "비밀번호 바꾸기, 로그아웃"]];
+  const items = [["guide", "주요 기능 안내", "농소스포츠스쿨에서 할 수 있는 것"], ["mission", "오늘의 미션", n ? `남은 미션 ${n}개` : "선생님이 낸 미션 하기"], ["pops", "POPS", "내 체력 기록과 등급 기준"], ["history", "활동 기록", "내 출석과 XP 내역"], ["install", "휴대폰에 설치", "홈 화면에 앱 아이콘 만들기"], ["settings", "설정", "비밀번호 바꾸기, 로그아웃"]];
   return `<div class="stack">${topline()}<div class="pagehead"><span class="eyebrow">농소스포츠스쿨</span><h2>더보기</h2></div>
     <div class="menu">${items.map(i => `<button data-act="sub" data-v="${i[0]}"><span class="k">${i[1]}${i[0] === "mission" && n ? " " + BELL(n) : ""}</span><span class="d">${i[2]}</span><span class="muted">›</span></button>`).join("")}</div></div>`;
 }
+/* 주요 기능 안내: 아직 만들지 않은 기능은 링크 없이 '준비 중'으로만 보여요 */
+const GUIDE = [
+  ["✅", "운동인증", "학교에서 진행되는 운동에 참여하고 QR로 운동을 인증해요.", ["tab", "check"]],
+  ["🏃", "자유운동", "하교 후나 주말에도 걷기·달리기 등 스스로 한 운동을 기록해요.", null],
+  ["🌅", "아침미션", "선생님이 제시하는 아침 운동 미션에 도전해요.", ["sub", "mission"]],
+  ["⭐", "경험치(XP) & 레벨", "운동하고 도전하면 경험치가 쌓이고 나의 레벨이 성장해요.", ["tab", "my"]],
+  ["🎯", "도전", "오늘의 도전, 주간 도전 등 다양한 운동 목표에 도전해요.", null],
+  ["🔥", "꾸준한 운동", "연속 참여, 운동 횟수, 운동시간 등 나의 꾸준한 활동을 확인해요.", null],
+  ["📅", "운동 달력", "내가 언제, 어떤 운동을 했는지 달력으로 한눈에 확인해요.", null],
+  ["🏅", "배지", "다양한 운동 목표를 달성하고 특별한 배지를 모아요.", null],
+  ["🧭", "운동 도감", "내가 직접 경험한 다양한 스포츠 종목을 하나씩 모아가요.", null],
+  ["💪", "POPS", "나의 체력 기록을 확인하고 이전의 나보다 얼마나 성장했는지 확인해요.", ["sub", "pops"]],
+  ["🏆", "최고 기록", "나의 이전 기록을 넘어 새로운 개인 최고 기록에 도전해요.", ["sub", "pops"]],
+  ["👥", "우리 반 공동목표", "친구들과 함께 운동하며 우리 반의 공동 목표를 달성해요.", null],
+  ["📊", "월간 리포트", "한 달 동안의 운동 횟수, 운동시간, 걸음 수, 경험치 등 나의 성장을 확인해요.", null]
+];
+function vGuide() {
+  const card = ([ic, name, desc, go]) => {
+    const inner = `<span class="gico" aria-hidden="true">${ic}</span><span class="gtx"><b>${esc(name)}</b><span>${esc(desc)}</span></span>${go ? '<span class="gchip on">바로가기 ›</span>' : '<span class="gchip">준비 중</span>'}`;
+    return go ? `<button class="gcard" data-act="${go[0]}" data-v="${go[1]}">${inner}</button>` : `<div class="gcard off">${inner}</div>`;
+  };
+  return `<div class="stack">${subHead("더보기", "주요 기능 안내")}
+    <section class="ghero"><div class="gemo" aria-hidden="true">🏃</div><h3>농소스포츠스쿨 주요 기능</h3><p class="gq">“움직이고, 기록하고, 성장하자!”</p>
+      <p class="small muted" style="margin:0">농소스포츠스쿨은 학교 안팎에서 운동하고, 나의 활동을 기록하며 성장하는 스포츠 활동 공간입니다.</p></section>
+    <div class="glist">${GUIDE.map(card).join("")}</div>
+    <section class="gflow"><div class="gsteps"><span>🏃<b>움직이고</b></span><i>→</i><span>✅<b>인증하고</b></span><i>→</i><span>📊<b>기록하고</b></span><i>→</i><span>🌱<b>성장하고</b></span></div>
+      <p class="gmotto">“오늘의 움직임이<br>내일의 나를 만듭니다.”</p></section></div>`;
+}
 function vSub() {
   const k = S.sub;
+  if (k === "guide") return vGuide();
   if (k === "mission") return vMissions();
   if (k === "mrun") return vMissionRun();
   if (k === "pops") return vPops();

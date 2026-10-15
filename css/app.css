@@ -359,3 +359,24 @@ textarea:focus-visible{outline:2px solid var(--court);outline-offset:2px}
 a.btn{text-decoration:none}
 /* 삼성 인터넷·크롬 다크 모드가 밝은 화면을 억지로 어둡게 바꾸지 않게: 다크 모드에서도 같은 밝은 색을 쓴다고 알려요 */
 @media (prefers-color-scheme: dark){:root{color-scheme:only light}html,body{background:var(--ink);color:var(--fg)}}
+
+/* 주요 기능 안내 */
+.ghero{background:var(--panel);border-radius:24px;padding:24px 20px;box-shadow:var(--shadow);text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+.ghero .gemo{width:56px;height:56px;border-radius:18px;background:var(--court-soft);display:grid;place-items:center;font-size:28px}
+.ghero h3{font:900 21px/1.3 var(--body)}
+.ghero .gq{margin:0;font:800 17px/1.4 var(--body);color:var(--court-deep)}
+.glist{display:flex;flex-direction:column;gap:10px}
+.gcard{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--panel);border:0;border-radius:20px;padding:16px;box-shadow:var(--shadow);color:inherit}
+.gcard .gico{width:46px;height:46px;flex:none;border-radius:15px;background:var(--court-soft);display:grid;place-items:center;font-size:23px}
+.gcard.off .gico{background:var(--panel2)}
+.gcard .gtx{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.gcard .gtx b{font-size:15.5px}
+.gcard .gtx span{font-size:13px;line-height:1.45;color:var(--muted)}
+.gchip{flex:none;font:700 11.5px/1 var(--body);padding:6px 9px;border-radius:999px;background:var(--panel2);color:var(--dim);white-space:nowrap}
+.gchip.on{background:var(--court-soft);color:var(--court-deep)}
+.gflow{background:var(--panel);border-radius:24px;padding:24px 16px;box-shadow:var(--shadow);text-align:center}
+.gsteps{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap}
+.gsteps span{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:22px;min-width:62px}
+.gsteps b{font-size:13px;font-weight:800}
+.gsteps i{font-style:normal;color:var(--court);font-weight:900}
+.gmotto{margin:20px 0 0;padding:18px 12px;border-radius:18px;background:var(--court);color:#fff;font:900 19px/1.45 var(--body)}
