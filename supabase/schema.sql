@@ -132,7 +132,7 @@ create table if not exists missions (
   kind text not null check (kind in ('walk', 'squat', 'pushup', 'lunge', 'jack', 'plank')),
   goal int not null check (goal between 1 and 100000),
   xp int not null default 20 check (xp between 0 and 200),
-  target_grade int check (target_grade between 1 and 3),
+  target_grade int check (target_grade between 0 and 3),   -- 비어 있으면 전교생+선생님, 0이면 선생님만
   target_class int check (target_class between 1 and 20),
   opens_at timestamptz not null default now(),
   closes_at timestamptz not null,
@@ -634,6 +634,10 @@ begin
 end $$;
 
 -- ---------- 미션 ----------
+-- 선생님만 대상인 미션(0)을 쓸 수 있게 예전 표의 규칙을 넓혀요
+alter table missions drop constraint if exists missions_target_grade_check;
+alter table missions add constraint missions_target_grade_check check (target_grade between 0 and 3);
+
 create or replace function admin_create_mission(p_kind text, p_goal int, p_xp int, p_grade int, p_class int, p_opens timestamptz, p_closes timestamptz) returns uuid
 language plpgsql security definer set search_path = public, extensions as $$
 declare mid uuid;
@@ -660,7 +664,7 @@ begin
   perform need_staff();
   return coalesce((select json_agg(x order by x.closes_at desc) from (
     select m.*, (select count(*) from mission_subs ms where ms.mission_id = m.id) as subs,
-      (select count(*) from students s where s.active and s.grade > 0 and (m.target_grade is null or s.grade = m.target_grade) and (m.target_class is null or s.class = m.target_class)) as targets
+      (select count(*) from students s where s.active and (m.target_grade is null or s.grade = m.target_grade) and (m.target_class is null or s.class = m.target_class)) as targets
     from missions m order by m.closes_at desc limit 100) x), '[]');
 end $$;
 

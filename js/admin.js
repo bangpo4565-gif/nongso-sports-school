@@ -24,7 +24,9 @@ async function call(fn, args = {}) {
   return data;
 }
 const today = () => new Date().toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" });
-const tgt = (g, c) => g ? `${g}학년${c ? ` ${c}반` : " 전체"}` : "전교생";
+const tgt = (g, c) => g === 0 ? "선생님" : g ? `${g}학년${c ? ` ${c}반` : " 전체"}` : "전교생";
+/* 미션 제출 현황에서 고를 수 있는 반: 전교생·선생님 미션이면 선생님(0-0)도 넣어요 */
+const mOpts = m => m.target_grade === 0 ? [{ grade: 0, class: 0 }] : [...(S.classes || []).filter(c => (!m.target_grade || c.grade === m.target_grade) && (!m.target_class || c.class === m.target_class)), ...(m.target_grade == null ? [{ grade: 0, class: 0 }] : [])];
 const isOwner = () => S.me && S.me.role === "owner";
 const studentUrl = () => new URL("./", location.href).href;
 
@@ -306,9 +308,9 @@ function aMission() {
   const sel = ms && ms.find(m => m.id === S.mview), now = Date.now();
   let detail = "";
   if (sel) {
-    const walk = sel.kind === "walk", subs = S.msubs, opts = (S.classes || []).filter(c => (!sel.target_grade || c.grade === sel.target_grade) && (!sel.target_class || c.class === sel.target_class));
+    const walk = sel.kind === "walk", subs = S.msubs, opts = mOpts(sel);
     detail = `<div class="card scroll" style="padding:6px 10px;margin-top:14px"><div class="row between" style="padding:10px 4px;flex-wrap:wrap;gap:10px"><b>${mTitle(sel)} · 제출 현황</b>
-      <select id="mcls" style="background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px;color:var(--fg)">${opts.map(c => `<option value="${c.grade}-${c.class}" ${S.mcls === c.grade + "-" + c.class ? "selected" : ""}>${c.grade}학년 ${c.class}반</option>`).join("")}</select></div>
+      <select id="mcls" style="background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px;color:var(--fg)">${opts.map(c => `<option value="${c.grade}-${c.class}" ${S.mcls === c.grade + "-" + c.class ? "selected" : ""}>${c.grade ? `${c.grade}학년 ${c.class}반` : "선생님"}</option>`).join("")}</select></div>
       ${walk ? '<p class="small muted" style="margin:0 4px 8px">1분에 150보가 넘으면 휴대폰을 흔든 것일 수 있어서 확인 필요로 표시해요.</p>' : ""}
       ${!subs ? loading : `<table class="tbl"><thead><tr><th>번호</th><th>이름</th><th>상태</th><th class="r">기록</th>${walk ? '<th class="r">걸린 시간</th><th class="r">분당 걸음</th>' : ""}<th>제출 시각</th><th></th></tr></thead><tbody>
       ${subs.map(s => { const done = s.value != null, cad = walk && done && s.secs ? Math.round(s.value / (s.secs / 60)) : 0;
@@ -321,7 +323,7 @@ function aMission() {
       <div class="mform" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
         <div class="field"><label for="mk">종류</label><select id="mk">${kinds}</select></div>
         <div class="field"><label for="mg">목표</label><input id="mg" type="number" min="1" value="${MKIND.walk.def}"></div>
-        <div class="field"><label for="mtg">대상 학년</label><select id="mtg"><option value="">전교생</option><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option></select></div>
+        <div class="field"><label for="mtg">대상 학년</label><select id="mtg"><option value="">전교생 + 선생님</option><option value="0">선생님만</option><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option></select></div>
         <div class="field"><label for="mtc">반</label><select id="mtc"><option value="">학년 전체</option>${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}반</option>`).join("")}</select></div>
         <div class="field"><label for="mo">시작</label><input id="mo" type="datetime-local" value="${localInput(new Date())}"></div>
         <div class="field"><label for="mc">마감</label><input id="mc" type="datetime-local" value="${localInput(end)}"></div>
@@ -413,7 +415,7 @@ async function loadLive() {
 async function loadStudents() { const [g, c] = S.cls.split("-").map(Number); S.students = null; render(); S.students = await call("admin_students", { p_grade: g, p_class: c }); }
 async function loadSubs() {
   const m = S.missions.find(x => x.id === S.mview); if (!m) return;
-  const opts = (S.classes || []).filter(c => (!m.target_grade || c.grade === m.target_grade) && (!m.target_class || c.class === m.target_class));
+  const opts = mOpts(m);
   if (!S.mcls || !opts.find(c => c.grade + "-" + c.class === S.mcls)) S.mcls = opts[0] ? opts[0].grade + "-" + opts[0].class : null;
   if (!S.mcls) { S.msubs = []; return; }
   const [g, c] = S.mcls.split("-").map(Number);
@@ -601,8 +603,9 @@ document.addEventListener("click", async e => {
       const g = document.getElementById("mtg").value, c = document.getElementById("mtc").value, o = document.getElementById("mo").value, cl = document.getElementById("mc").value;
       if (!(goal > 0)) throw new Error("목표를 1 이상으로 써 주세요.");
       if (c && !g) throw new Error("반을 고르려면 학년도 골라 주세요.");
+      if (c && g === "0") throw new Error("선생님 미션은 반을 고르지 않아요. 반을 학년 전체로 두세요.");
       if (!cl) throw new Error("마감 시각을 정해 주세요.");
-      const id = await call("admin_create_mission", { p_kind: kind, p_goal: goal, p_xp: xp || 0, p_grade: g ? +g : null, p_class: c ? +c : null, p_opens: o ? new Date(o).toISOString() : null, p_closes: new Date(cl).toISOString() });
+      const id = await call("admin_create_mission", { p_kind: kind, p_goal: goal, p_xp: xp || 0, p_grade: g === "" ? null : +g, p_class: c ? +c : null, p_opens: o ? new Date(o).toISOString() : null, p_closes: new Date(cl).toISOString() });
       S.mview = id; S.msubs = null; await load("mission");
     }, "미션을 냈어요. 대상 학생 홈 화면에 떠요."); break;
     case "mview": S.mview = S.mview === v ? null : v; S.msubs = null; render(); if (S.mview) { try { await loadSubs(); } catch (er) { toast(aerr(er)); } render(); } break;
