@@ -65,7 +65,9 @@ export const ERR = {
   not_found: "미션을 찾지 못했어요.",
   not_open: "아직 미션 시간이 아니에요.",
   closed: "미션 시간이 끝났어요.",
-  not_enough: "목표를 다 채우지 못했어요."
+  not_enough: "목표를 다 채우지 못했어요.",
+  free_off: "선생님이 자유운동을 잠시 꺼 두었어요.",
+  bad_kind: "지금은 고를 수 없는 운동이에요."
 };
 export const errText = (code, extra) => (ERR[code] || "문제가 생겼어요. 잠시 뒤에 다시 해 주세요.") + (extra ? " " + extra : "");
 

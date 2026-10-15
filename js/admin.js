@@ -7,13 +7,14 @@ const sb = configured() ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KE
 const S = {
   view: "loading", authTab: "login", msg: null, busy: false, me: null, page: "dash", tv: false,
   dash: null, sessions: null, sid: null, live: null, liveClass: "", qrMode: "in", qr: null,
-  raceGrade: 1, race: {}, classes: null, pcls: null, pyear: new Date().getFullYear(), pround: 1, pitem: "shuttle", prows: null, pedit: {}, ptext: "", ppreview: null, pbad: 0, cls: null, students: null, missions: null, mview: null, mcls: null, msubs: null, cfg: null
+  raceGrade: 1, race: {}, classes: null, pcls: null, pyear: new Date().getFullYear(), pround: 1, pitem: "shuttle", prows: null, pedit: {}, ptext: "", ppreview: null, pbad: 0, cls: null, students: null, missions: null, mview: null, mcls: null, msubs: null, cfg: null,
+  freeList: null, freeStatus: "REVIEW", chals: null, badges: null
 };
 
 const AERR = {
   not_staff: "승인된 선생님만 할 수 있어요.", not_owner: "관리교사만 바꿀 수 있어요.", last_owner: "관리교사는 한 명 이상 남아 있어야 해요.",
   session_closed: "이 세션은 닫혔어요. 다시 열거나 새 세션을 열어 주세요.", bad_program: "쓸 수 없는 프로그램이에요.", bad_time: "마감이 시작보다 늦어야 해요.",
-  need_reason: "XP를 조정하는 이유를 적어 주세요.", too_big: "한 번에 500 XP까지만 조정할 수 있어요.",
+  need_reason: "XP를 조정하는 이유를 적어 주세요.", need_grade: "우리 반 공동목표는 학년을 골라 주세요.", bad_value: "숫자가 허용 범위를 벗어났어요.", too_big: "한 번에 500 XP까지만 조정할 수 있어요.",
   "Invalid login credentials": "이메일이나 비밀번호가 맞지 않아요.", "Email not confirmed": "메일함에서 가입 확인 링크를 먼저 눌러 주세요.",
   "User already registered": "이미 가입된 이메일이에요. 로그인해 주세요."
 };
@@ -53,14 +54,15 @@ function vPending() {
 
 /* ---------- 화면 틀 ---------- */
 const MENU = [["dash", "대시보드"], ["sessions", "QR 출석 열기"], ["live", "실시간 출석"], ["qr", "QR 화면 (TV)"], ["race", "학급 레이스 (TV)"],
-  ["mission", "미션"], ["students", "학생 · 명단"], ["paps", "POPS 기록"], ["staff", "선생님 참여"], ["programs", "운동 프로그램"], ["settings", "설정"]];
+  ["mission", "미션"], ["students", "학생 · 명단"], ["paps", "POPS 기록"], ["staff", "선생님 참여"], ["free", "자유운동"], ["chal", "도전 · 공동목표"], ["badges", "배지 · 종목"], ["programs", "운동 프로그램"], ["settings", "설정"]];
 function vAdmin() {
   const p = S.page;
   const body = p === "dash" ? aDash() : p === "sessions" ? aSessions() : p === "live" ? aLive() : p === "qr" ? aQr() : p === "race" ? aRace()
-    : p === "mission" ? aMission() : p === "students" ? aStudents() : p === "paps" ? aPaps() : p === "staff" ? aStaff() : p === "programs" ? aPrograms() : aSettings();
+    : p === "mission" ? aMission() : p === "students" ? aStudents() : p === "paps" ? aPaps() : p === "staff" ? aStaff() : p === "programs" ? aPrograms()
+    : p === "free" ? aFree() : p === "chal" ? aChal() : p === "badges" ? aBadges() : aSettings();
   const pend = S.dash?.pending_teachers || 0;
   return `<div class="admin ${S.tv ? "tv" : ""}"><aside class="side"><div class="brand">농소<em>스포츠스쿨</em></div><div class="grp">${esc(S.me?.name || S.me?.email || "")}</div>
-    ${MENU.map(([k, t]) => `<button data-act="page" data-v="${k}" class="${p === k ? "on" : ""}">${t}${k === "settings" && pend && isOwner() ? `<small>승인 ${pend}</small>` : ""}</button>`).join("")}
+    ${MENU.map(([k, t]) => `<button data-act="page" data-v="${k}" class="${p === k ? "on" : ""}">${t}${k === "settings" && pend && isOwner() ? `<small>승인 ${pend}</small>` : ""}${k === "free" && S.freeList?.review ? `<small>확인 ${S.freeList.review}</small>` : ""}</button>`).join("")}
     <div class="grp">바로가기</div><button data-act="openapp">학생 앱 열기</button><button data-act="logout">로그아웃</button>
     </aside><main class="main">${body}</main></div>`;
 }
@@ -95,6 +97,7 @@ function aSessions() {
     `<section class="card" style="margin-bottom:14px"><span class="eyebrow">새 출석 열기</span>
       <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:12px;align-items:flex-end">
         <div class="field" style="min-width:200px;flex:1"><label for="sprog">프로그램</label><select id="sprog">${progs.map(p => `<option value="${p.id}">${esc(p.name)} · 최소 ${mmss(p.min_seconds)} · +${p.xp} XP</option>`).join("")}</select></div>
+        <div class="field" style="min-width:150px"><label for="ssport">종목 (운동 도감)</label><select id="ssport"><option value="">프로그램 기본 종목</option>${(S.badges?.sports || []).filter(x => x.active).map(x => `<option value="${x.id}">${x.icon} ${esc(x.name)}</option>`).join("")}</select></div>
         <div class="field" style="min-width:140px"><label for="sgrade">대상</label><select id="sgrade"><option value="">전교생</option><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option></select></div>
         <button class="btn" data-act="sopen" style="width:auto">열고 QR 띄우기</button></div></section>
     <div class="card scroll" style="padding:6px 10px">${!rows ? loading : !rows.length ? '<p class="muted">최근 2주 동안 연 출석이 없어요.</p>' :
@@ -377,6 +380,94 @@ function aSettings() {
     <section class="card stack" style="margin-top:18px"><span class="eyebrow">주소</span><div class="small">학생 앱: <b>${esc(studentUrl())}</b></div><div class="small">선생님 화면: <b>${esc(location.href.split("#")[0])}</b></div></section>`;
 }
 
+/* ---------- 자유운동 ---------- */
+const FKN = { walk: "🚶 걷기", run: "🏃 달리기", jumprope: "🤸 줄넘기", hometrain: "💪 홈트레이닝" };
+const FST = { OK: ["COMPLETED", "인정"], APPROVED: ["MANUAL", "선생님 인정"], SHORT: ["WAITING", "시간 부족"], REVIEW: ["ACTIVE", "확인 필요"], REJECTED: ["FAILED", "반려"], ACTIVE: ["ACTIVE", "측정 중"] };
+const FFLAG = { fast: "평균 분당 200걸음 넘음", fast_minute: "어떤 1분이 200걸음 넘음", even: "1분 기록이 계속 똑같음", long: "3시간 넘어서 잘림", nomove: "휴대폰 움직임 없음", daily_limit: "하루 한도 넘어 XP 없음", restarted: "새로 시작해서 끝남" };
+function miniBars(m) {
+  const a = Array.isArray(m) ? m : []; if (!a.length) return "";
+  const mx = Math.max(200, ...a), W = Math.max(60, a.length * 6);
+  return `<svg viewBox="0 0 ${W} 30" width="${Math.min(W, 180)}" height="30" aria-label="1분 걸음 그래프">${a.map((v, i) => `<rect x="${i * 6}" y="${30 - v / mx * 30}" width="4" height="${v / mx * 30}" rx="1" fill="${v > 200 ? "var(--bad)" : "var(--data)"}"/>`).join("")}<line x1="0" x2="${W}" y1="0" y2="0" stroke="var(--bad)" stroke-dasharray="2 2" stroke-width=".6"/></svg>`;
+}
+function aFree() {
+  const F = S.freeList, cfg = S.cfg?.settings?.free_workout, own = isOwner(), dis = own ? "" : "disabled";
+  const kinds = cfg?.kinds || [];
+  const setForm = !cfg ? loading : `<section class="card stack" style="margin-bottom:14px"><div class="row between"><span class="eyebrow">자유운동 설정${own ? "" : " (관리교사만 바꿀 수 있어요)"}</span><label class="small"><input type="checkbox" id="fon" ${cfg.on !== false ? "checked" : ""} ${dis}> 자유운동 켜기</label></div>
+    <div class="mform" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+      <div class="field"><label for="fbasis">인정 기준</label><select id="fbasis" ${dis}>${[["time", "운동시간만"], ["steps", "걸음 수만 (걷기·달리기)"], ["both", "운동시간 + 걸음 수"]].map(([k, t]) => `<option value="${k}" ${cfg.basis === k ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+      <div class="field"><label for="fmin">최소 운동시간 (분)</label><input id="fmin" type="number" min="1" max="120" value="${Math.round(cfg.min_secs / 60)}" ${dis}></div>
+      <div class="field"><label for="fsteps">최소 걸음</label><input id="fsteps" type="number" min="0" value="${cfg.min_steps}" ${dis}></div>
+      <div class="field"><label for="fcount">하루 인정 횟수</label><input id="fcount" type="number" min="0" max="20" value="${cfg.daily_count}" ${dis}></div>
+      <div class="field"><label for="fdxp">하루 최대 XP</label><input id="fdxp" type="number" min="0" max="1000" value="${cfg.daily_xp}" ${dis}></div></div>
+    <div class="row" style="gap:10px;flex-wrap:wrap">${Object.keys(FKN).map(k => `<div class="field" style="min-width:140px;flex:1"><label><input type="checkbox" data-fk="${k}" ${kinds.includes(k) ? "checked" : ""} ${dis}> ${FKN[k]} XP</label><input type="number" data-fx="${k}" min="0" max="200" value="${(cfg.xp || {})[k] ?? 20}" ${dis}></div>`).join("")}</div>
+    ${own ? '<button class="btn" data-act="fsave" style="max-width:240px">자유운동 설정 저장</button>' : ""}
+    <p class="small muted" style="margin:0">학생 휴대폰 화면이 켜져 있는 동안만 걸음을 세요. 걸음 수는 추정값이라 정확하지 않을 수 있어서, 기본값은 운동시간으로 인정해요.</p></section>`;
+  const st = S.freeStatus;
+  return head("학생이 하교 후·주말에 한 운동 기록이에요. 위치나 건강 정보는 받지 않아요", "자유운동") + setForm +
+    `<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">${[["REVIEW", `확인 필요${F && F.review ? ` (${F.review})` : ""}`], ["", "전체"], ["OK", "인정"], ["SHORT", "시간 부족"], ["APPROVED", "선생님 인정"], ["REJECTED", "반려"]].map(([k, t]) => `<button class="btn sm ${st === k ? "" : "ghost"}" data-act="fstatus" data-v="${k}" style="width:auto">${t}</button>`).join("")}</div>
+    <div class="card scroll" style="padding:6px 10px">${!F ? loading : !F.rows.length ? `<p class="muted">${st === "REVIEW" ? "확인할 기록이 없어요." : "기록이 없어요."}</p>` :
+      `<table class="tbl"><thead><tr><th>학생</th><th>운동</th><th>시작</th><th class="r">운동시간</th><th class="r">걸음</th><th>1분 걸음</th><th>상태</th><th class="r">XP</th><th></th></tr></thead><tbody>
+      ${F.rows.map(w => `<tr><td>${w.grade ? `${w.grade}-${w.class} ${w.num}번` : "선생님"} <b>${esc(w.name)}</b></td><td>${FKN[w.kind] || w.kind}</td><td class="num">${fmtDT(w.started_at)}</td>
+        <td class="r num">${mmss(w.active_secs)}${w.screen_off_secs ? `<br><small class="muted">화면 꺼짐 ${mmss(w.screen_off_secs)}</small>` : ""}</td><td class="r num">${w.steps ? Number(w.steps).toLocaleString() : "–"}${w.steps && w.active_secs >= 60 ? `<br><small class="muted">분당 ${Math.round(w.steps / (w.active_secs / 60))}</small>` : ""}</td>
+        <td>${miniBars(w.minute_steps)}</td><td><span class="state st-${(FST[w.status] || ["WAITING"])[0]}">${(FST[w.status] || [, w.status])[1]}</span>${w.flags?.length ? `<br><small class="muted">${w.flags.map(f => FFLAG[f] || f).join(", ")}</small>` : ""}</td>
+        <td class="r num">${w.xp ? "+" + w.xp : "0"}</td><td class="r" style="white-space:nowrap">${w.status === "REVIEW" ? `<button class="btn sm" data-act="fok" data-v="${w.id}" style="width:auto">인정</button> <button class="btn sm ghost" data-act="fno" data-v="${w.id}" style="width:auto">반려</button>` : ""}</td></tr>`).join("")}
+      </tbody></table>`}</div>
+    <p class="small muted">분당 200걸음이 넘거나 1분 기록이 계속 똑같으면 휴대폰을 흔든 것일 수 있어서 확인 필요로 모여요. 인정하면 그날 한도 안에서 XP가 들어가고, 반려하면 기록만 남아요.</p>`;
+}
+
+/* ---------- 도전 · 우리 반 공동목표 ---------- */
+const CSC = { day: "오늘의 도전", week: "주간 도전", period: "기간 도전", class: "우리 반 공동목표" };
+const CMT = { count: ["운동 참여 횟수", "회"], minutes: ["운동시간", "분"], days: ["운동한 날 수", "일"], steps: ["걸음 수", "걸음"], free: ["자유운동 횟수", "회"], school: ["학교 운동인증 횟수", "회"] };
+function aChal() {
+  const L = S.chals, t = seoulDate();
+  const mon = (() => { const d = new Date(t + "T00:00:00Z"), w = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - w); return d.toISOString().slice(0, 10); })();
+  const sun = (() => { const d = new Date(mon + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + 6); return d.toISOString().slice(0, 10); })();
+  return head("학생 앱의 도전 화면과 홈에 떠요. 학교 운동, 미션, 자유운동 기록이 모두 쌓여요", "도전 · 우리 반 공동목표") +
+    `<section class="card" style="margin-bottom:14px"><span class="eyebrow">새 도전 만들기</span>
+      <div class="mform" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+        <div class="field" style="grid-column:1/-1"><label for="ct">이름</label><input id="ct" maxlength="60" placeholder="예: 이번 주 운동 3번 하기"></div>
+        <div class="field"><label for="cs">종류</label><select id="cs">${Object.entries(CSC).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
+        <div class="field"><label for="cm">무엇을</label><select id="cm">${Object.entries(CMT).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join("")}</select></div>
+        <div class="field"><label for="cg">목표</label><input id="cg" type="number" min="1" value="3"></div>
+        <div class="field"><label for="cx">보상 XP</label><input id="cx" type="number" min="0" max="200" value="20"></div>
+        <div class="field"><label for="cf">시작일</label><input id="cf" type="date" value="${mon}" data-mon="${mon}" data-sun="${sun}" data-today="${t}"></div>
+        <div class="field"><label for="ce">마지막 날</label><input id="ce" type="date" value="${sun}"></div>
+        <div class="field"><label for="ctg">대상 학년</label><select id="ctg"><option value="">전교생</option><option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option></select></div>
+        <div class="field"><label for="ctc">반</label><select id="ctc"><option value="">학년 전체</option>${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}반</option>`).join("")}</select></div>
+        <button class="btn" data-act="cadd" style="align-self:end">도전 만들기</button></div>
+      <p class="small muted" style="margin:10px 0 0">우리 반 공동목표는 반 학생 모두의 기록을 더해서 세고, 학년을 꼭 골라야 해요. 목표를 채우면 학생이 앱에서 보상 받기를 눌러 XP를 받아요 (기간이 끝나고 3일까지).</p></section>
+    <div class="card scroll" style="padding:6px 10px">${!L ? loading : !L.length ? '<p class="muted">아직 만든 도전이 없어요.</p>' :
+      `<table class="tbl"><thead><tr><th>도전</th><th>종류</th><th>목표</th><th>대상</th><th>기간</th><th>상태</th><th class="r">달성</th><th class="r">XP</th><th></th></tr></thead><tbody>
+      ${L.map(c => { const s = t < c.starts_on ? ["WAITING", "예정"] : t > c.ends_on ? ["FAILED", "끝남"] : ["ACTIVE", "진행 중"];
+        return `<tr><td><b>${esc(c.title)}</b></td><td>${CSC[c.scope]}</td><td>${CMT[c.metric][0]} ${Number(c.goal).toLocaleString()}${CMT[c.metric][1]}</td><td>${tgt(c.target_grade, c.target_class)}</td>
+        <td class="num">${fmtDay(c.starts_on)} ~ ${fmtDay(c.ends_on)}</td><td><span class="state st-${s[0]}">${s[1]}</span></td><td class="r num">${c.done}명</td><td class="r num">+${c.xp}</td>
+        <td class="r"><button class="btn sm ghost" data-act="cdel" data-v="${c.id}" style="width:auto">삭제</button></td></tr>`; }).join("")}</tbody></table>`}</div>`;
+}
+
+/* ---------- 배지 · 운동 종목 ---------- */
+const BKIND = { total: "전체 운동 횟수", school: "학교 운동인증 횟수", morning: "레이스 프로그램(아침 운동) 횟수", streak: "최고 연속 참여", free: "자유운동 횟수", steps: "누적 걸음", sports: "경험한 종목 수", challenges: "달성한 도전 수", missions: "완료한 미션 수", days: "운동한 날 수" };
+function aBadges() {
+  const B = S.badges, progs = S.cfg?.programs || [];
+  if (!B) return head("", "배지 · 운동 종목") + loading;
+  const sportOpt = (sel) => `<option value="">없음</option>${B.sports.filter(x => x.active || x.id === sel).map(x => `<option value="${x.id}" ${x.id === sel ? "selected" : ""}>${x.icon} ${esc(x.name)}</option>`).join("")}`;
+  return head("배지는 조건을 채우면 학생 앱에서 자동으로 생겨요", "배지 · 운동 종목") +
+    `<div class="card scroll" style="padding:6px 10px;margin-bottom:14px"><table class="tbl ptbl"><thead><tr><th>아이콘</th><th>배지 이름</th><th>조건</th><th class="r">기준</th><th>사용</th><th class="r">받은 학생</th><th></th></tr></thead><tbody>
+      ${B.badges.map(b => `<tr data-bid="${b.id}"><td><input class="pin" data-f="icon" value="${esc(b.icon)}" style="width:52px" aria-label="아이콘"></td><td><input class="pin" data-f="name" value="${esc(b.name)}" aria-label="이름"></td><td class="small">${BKIND[b.kind]}</td>
+        <td class="r"><input class="pin num" data-f="goal" type="number" min="1" value="${b.goal}" style="width:90px" aria-label="기준"></td><td><label class="small"><input type="checkbox" data-f="active" ${b.active ? "checked" : ""}> 사용</label></td><td class="r num">${b.earned}명</td>
+        <td class="r"><button class="btn sm ghost" data-act="bsave" style="width:auto">저장</button></td></tr>`).join("")}
+      <tr data-bid=""><td><input class="pin" data-f="icon" placeholder="🏅" style="width:52px" aria-label="아이콘"></td><td><input class="pin" data-f="name" placeholder="새 배지 이름" aria-label="이름"></td>
+        <td><select data-f="kind" aria-label="조건">${Object.entries(BKIND).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></td><td class="r"><input class="pin num" data-f="goal" type="number" min="1" value="10" style="width:90px" aria-label="기준"></td><td></td><td></td>
+        <td class="r"><button class="btn sm" data-act="bsave" style="width:auto">추가</button></td></tr></tbody></table></div>
+    <p class="small muted">기준을 낮추면 이미 조건을 채운 학생은 다음에 앱을 열 때 배지를 받아요. 이미 받은 배지는 기준을 올려도 사라지지 않아요.</p>
+    <h2 style="font-size:20px;margin:22px 0 10px">운동 종목 (운동 도감)</h2>
+    <div class="grid2"><div class="card scroll" style="padding:6px 10px"><table class="tbl ptbl"><thead><tr><th>아이콘</th><th>종목</th><th>사용</th><th></th></tr></thead><tbody>
+      ${B.sports.map(x => `<tr data-spid="${x.id}"><td><input class="pin" data-f="icon" value="${esc(x.icon)}" style="width:52px" aria-label="아이콘"></td><td><input class="pin" data-f="name" value="${esc(x.name)}" ${x.code ? "readonly" : ""} aria-label="종목"></td><td><label class="small"><input type="checkbox" data-f="active" ${x.active ? "checked" : ""}> 사용</label></td><td class="r"><button class="btn sm ghost" data-act="spsave" style="width:auto">저장</button></td></tr>`).join("")}
+      <tr data-spid=""><td><input class="pin" data-f="icon" placeholder="🏅" style="width:52px" aria-label="아이콘"></td><td><input class="pin" data-f="name" placeholder="새 종목" aria-label="종목"></td><td></td><td class="r"><button class="btn sm" data-act="spsave" style="width:auto">추가</button></td></tr></tbody></table></div>
+      <section class="card stack"><span class="eyebrow">프로그램별 기본 종목</span>
+        ${progs.map(p => `<div class="row between" style="gap:10px"><span>${esc(p.name)}</span><select data-psport="${p.id}" style="max-width:180px">${sportOpt(p.sport_id)}</select></div>`).join("") || '<p class="muted small">프로그램이 없어요.</p>'}
+        <p class="small muted" style="margin:0">QR 출석을 열 때 종목을 따로 고르지 않으면 이 종목으로 도감에 쌓여요. 걷기·달리기·줄넘기·홈트레이닝은 자유운동과 미션에서도 쌓여요.</p></section></div>`;
+}
+
 /* ---------- 불러오기 ---------- */
 async function load(page = S.page) {
   try {
@@ -398,7 +489,10 @@ async function load(page = S.page) {
     }
     if (page === "staff") S.staff = await call("admin_staff_board");
     if (page === "mission") { [S.missions, S.classes] = await Promise.all([call("admin_missions"), call("admin_classes")]); if (S.mview) await loadSubs(); }
-    if (page === "programs" || page === "settings" || page === "sessions") S.cfg = await call("admin_settings");
+    if (page === "programs" || page === "settings" || page === "sessions" || page === "free" || page === "badges") S.cfg = await call("admin_settings");
+    if (page === "sessions" || page === "badges") S.badges = await call("admin_badges");
+    if (page === "free" || page === "dash") S.freeList = await call("admin_free_list", { p_status: page === "free" ? S.freeStatus || null : "REVIEW", p_grade: null, p_class: null });
+    if (page === "chal") S.chals = await call("admin_challenges");
   } catch (e) { toast(aerr(e)); }
   // 선생님이 입력하는 중이면 화면을 다시 그리지 않아요 (쓰던 내용이 지워지지 않게)
   const typing = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && document.activeElement.closest(".main");
@@ -503,6 +597,11 @@ document.addEventListener("change", async e => {
     if (t.includes("\ufffd")) { try { t = new TextDecoder("euc-kr").decode(buf); } catch {} }
     document.getElementById("papsin").value = t; papscheck();
   }
+  if (e.target.dataset.psport) { try { await call("admin_set_program_sport", { p_program: +e.target.dataset.psport, p_sport: e.target.value ? +e.target.value : null }); S.cfg = await call("admin_settings"); toast("종목을 바꿨어요"); } catch (er) { toast(aerr(er)); } }
+  if (id === "cs") {
+    const f = document.getElementById("cf"), t = document.getElementById("ce");
+    if (f && t) { if (e.target.value === "day") { f.value = t.value = f.dataset.today; } else if (e.target.value === "week") { f.value = f.dataset.mon; t.value = f.dataset.sun; } }
+  }
   if (id === "mk") { const g = document.getElementById("mg"); if (g) g.value = MKIND[e.target.value].def; }
   if (id === "stafffile" && e.target.files[0]) {
     const buf = await e.target.files[0].arrayBuffer();
@@ -542,7 +641,9 @@ document.addEventListener("click", async e => {
     case "openapp": window.open(studentUrl(), "_blank"); break;
     case "sopen": await busy(async () => {
       const p = +document.getElementById("sprog").value, g = document.getElementById("sgrade").value;
-      S.sid = await call("admin_open_session", { p_program: p, p_grade: g ? +g : null }); S.sessions = null; S.qrMode = "in"; go("qr");
+      const sp = document.getElementById("ssport")?.value;
+      S.sid = await call("admin_open_session", { p_program: p, p_grade: g ? +g : null });
+      if (sp) await call("admin_set_session_sport", { p_session: S.sid, p_sport: +sp }); S.sessions = null; S.qrMode = "in"; go("qr");
     }, "출석을 열었어요. 이 화면을 TV에 띄워 주세요."); break;
     case "sclose": if (!confirm("이 출석을 닫을까요? 아직 완료 QR을 안 찍은 학생은 미완료가 돼요.")) break;
       await busy(async () => { const n = await call("admin_close_session", { p_session: v }); toast(`닫았어요${n ? ` (미완료 ${n}명)` : ""}`); S.sessions = await call("admin_sessions", { p_days: 14 });
@@ -636,6 +737,40 @@ document.addEventListener("click", async e => {
       await call("admin_save_settings", { p: { qr_seconds: qr, geo_radius_m: rad > 0 ? Math.round(rad) : 80, race_program_id: +val("crp"), race_from: val("crf"), race_to: val("crt"), prizes: [val("cp1"), val("cp2"), val("cp3")] } });
       S.cfg = await call("admin_settings"); S.race = {}; render();
     }, "설정을 저장했어요"); break;
+    case "fstatus": S.freeStatus = v; S.freeList = null; render(); load("free"); break;
+    case "fok": case "fno": if (act === "fno" && !confirm("이 기록을 반려할까요? XP는 들어가지 않아요.")) break;
+      await busy(async () => { const r = await call("admin_free_review", { p_id: v, p_ok: act === "fok" }); if (r && r.error) throw new Error("이미 처리된 기록이에요."); await load("free"); }, act === "fok" ? "인정했어요" : "반려했어요"); break;
+    case "fsave": await busy(async () => {
+      const n = id => +document.getElementById(id).value, kinds = [], xp = {};
+      document.querySelectorAll("[data-fk]").forEach(c => { if (c.checked) kinds.push(c.dataset.fk); });
+      document.querySelectorAll("[data-fx]").forEach(c => { xp[c.dataset.fx] = Math.max(0, Math.round(+c.value || 0)); });
+      if (!(n("fmin") >= 1 && n("fmin") <= 120)) throw new Error("최소 운동시간은 1~120분으로 써 주세요.");
+      if (!kinds.length && document.getElementById("fon").checked) throw new Error("운동 종류를 하나 이상 골라 주세요.");
+      await call("admin_save_free", { p: { on: document.getElementById("fon").checked, kinds, basis: document.getElementById("fbasis").value, min_secs: Math.round(n("fmin") * 60),
+        min_steps: Math.max(0, Math.round(n("fsteps"))), daily_count: Math.round(n("fcount")), daily_xp: Math.round(n("fdxp")), xp } });
+      S.cfg = await call("admin_settings"); render();
+    }, "자유운동 설정을 저장했어요"); break;
+    case "cadd": await busy(async () => {
+      const val = id => document.getElementById(id).value.trim();
+      const p = { title: val("ct"), scope: val("cs"), metric: val("cm"), goal: Math.round(+val("cg")), xp: Math.round(+val("cx")) || 0, starts_on: val("cf"), ends_on: val("ce"), target_grade: val("ctg"), target_class: val("ctc") };
+      if (!p.title) throw new Error("도전 이름을 써 주세요.");
+      if (!(p.goal > 0)) throw new Error("목표를 1 이상으로 써 주세요.");
+      if (p.scope === "day" && !p.starts_on) p.starts_on = p.ends_on = seoulDate();
+      if (!p.starts_on || !p.ends_on || p.ends_on < p.starts_on) throw new Error("마지막 날이 시작일보다 같거나 늦어야 해요.");
+      if (p.target_class && !p.target_grade) throw new Error("반을 고르려면 학년도 골라 주세요.");
+      if (p.scope === "class" && !p.target_grade) throw new Error("우리 반 공동목표는 학년을 골라 주세요.");
+      await call("admin_save_challenge", { p }); await load("chal");
+    }, "도전을 만들었어요. 학생 앱에 떠요."); break;
+    case "cdel": if (!confirm("이 도전을 지울까요? 이미 받은 XP도 되돌려져요.")) break;
+      await busy(async () => { await call("admin_delete_challenge", { p_id: v }); await load("chal"); }, "지웠어요"); break;
+    case "bsave": case "spsave": {
+      const tr = b.closest("tr"), f = k => tr.querySelector(`[data-f="${k}"]`), rid = act === "bsave" ? tr.dataset.bid : tr.dataset.spid;
+      const p = { name: f("name").value.trim(), icon: f("icon").value.trim() };
+      if (!p.name) { toast("이름을 써 주세요."); break; }
+      if (rid) { p.id = +rid; p.active = f("active").checked; }
+      if (act === "bsave") { p.goal = Math.round(+f("goal").value); if (!(p.goal > 0)) { toast("기준을 1 이상으로 써 주세요."); break; } if (!rid) p.kind = f("kind").value; }
+      await busy(async () => { await call(act === "bsave" ? "admin_save_badge" : "admin_save_sport", { p }); S.badges = await call("admin_badges"); render(); }, "저장했어요"); break;
+    }
     case "trole": {
       const r = b.dataset.r, msg = r === "remove" ? "이 선생님 계정을 지울까요?" : r === "owner" ? "이 선생님도 관리교사로 만들까요?" : null;
       if (msg && !confirm(msg)) break;

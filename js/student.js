@@ -8,7 +8,8 @@ const PHOTO = "img/splash.jpg";
 const S = {
   token: store.get("ns_token"), view: "splash", loginTab: "", tab: "home", sub: null,
   home: null, offset: 0, rank: null, rankMode: "class", raceGrade: null, races: {}, hist: null, paps: null,
-  msg: null, done: null, scanning: false, pick: null, mid: null, mcur: 0, papsG: null, papsS: "M", busy: false
+  msg: null, done: null, scanning: false, pick: null, mid: null, mcur: 0, papsG: null, papsS: "M", busy: false,
+  checkMode: null, free: null, fw: null, fwDone: null, prog: null, cal: null, calM: null, calDay: null, rep: null, repM: null, chal: null, freeRank: null
 };
 const serverNow = () => Date.now() + S.offset;
 const openMissions = () => (S.home?.missions || []).filter(m => !m.done && new Date(m.closes_at) > serverNow());
@@ -28,6 +29,7 @@ async function loadHome() {
   if (S.raceGrade == null) S.raceGrade = h.me.grade || 1;
   return h;
 }
+async function loadFreeRank() { try { S.freeRank = await call("student_free_rank"); render(); } catch {} }
 async function loadRace(g) { S.races[g] = await call("student_race", { p_grade: g }); return S.races[g]; }
 function logout(expired) {
   if (S.token && !expired) rpc("student_logout", { p_token: S.token }).catch(() => {});
@@ -96,8 +98,24 @@ function vHome() {
     ${om.length ? `<section class="stack"><div class="row between"><h3 class="row" style="font-size:17px;gap:10px">오늘의 미션 ${BELL(om.length)}</h3><button class="back" data-act="sub" data-v="mission">전체 보기 ›</button></div>
       ${om.slice(0, 2).map(m => `<button class="sess" data-act="mstart" data-v="${m.id}"><div class="tm num">${m.goal >= 1000 ? (m.goal / 1000) + "k" : m.goal}<small>${MKIND[m.kind].unit}</small></div>
         <div class="meta"><b>${mTitle(m)}</b><span class="small muted">${HOWLAB[MKIND[m.kind].how]} · ${fmtDT(m.closes_at)}까지 · +${m.xp} XP</span></div><span class="chip">시작 ›</span></button>`).join("")}</section>` : ""}
+    ${homeFree()}
+    ${homeChal()}
     ${race}
   </div>`;
+}
+function homeFree() {
+  if (S.fw) return `<button class="sess" data-act="free" style="border-color:var(--data)"><div class="tm num" data-live="homeFw">${clock(fwElapsed())}<small>측정 중</small></div>
+    <div class="meta"><b>${FKIND[S.fw.kind].icon} 자유운동 ${FKIND[S.fw.kind].name}</b><span class="small muted">끝나면 길게 눌러 운동 종료를 눌러요</span></div><span class="chip">보기 ›</span></button>`;
+  if (activeOf() || (S.home.open || []).some(o => !o.mine)) return "";
+  return `<section class="card freecard"><div><span class="eyebrow">🏃 자유운동</span><b>학교 밖에서도 운동을 기록해 보세요!</b><span class="small muted">걷기 · 달리기 · 줄넘기 · 홈트레이닝</span></div><button class="btn teal" data-act="free" style="width:auto">자유운동 시작</button></section>`;
+}
+function homeChal() {
+  const t = todayStr(), c = (S.chal || []).find(x => !x.done && x.starts_on <= t && x.ends_on >= t);
+  if (!c) return "";
+  const m = CMET[c.metric], pct = Math.min(100, Math.round(c.progress / c.goal * 100));
+  return `<button class="card" data-act="sub" data-v="chal" style="text-align:left;width:100%"><div class="row between"><span class="eyebrow">🎯 ${CSCOPE[c.scope]}</span><span class="back">보기 ›</span></div>
+    <b style="display:block;margin-top:6px">${esc(c.title)}</b><div class="pbar big" style="margin-top:10px"><i style="width:${pct}%"></i></div>
+    <div class="small muted num" style="margin-top:6px">${Number(Math.min(c.progress, c.goal)).toLocaleString()} / ${Number(c.goal).toLocaleString()}${m[1]} · +${c.xp} XP${c.progress >= c.goal ? " · 보상 받기 가능!" : ""}</div></button>`;
 }
 
 /* ---------- CHECK ---------- */
@@ -188,7 +206,7 @@ async function doScan(payload) {
     const r = await call("student_scan", { p_payload: payload, p_device: deviceId(), p_lat: pos ? pos.latitude : null, p_lng: pos ? pos.longitude : null });
     await loadHome();
     if (sid) S.pick = sid;
-    S.tab = "check"; S.sub = null;
+    S.tab = "check"; S.sub = null; S.checkMode = "school";
     if (r.error) {
       S.msg = { k: r.error === "already_in" || r.error === "already_done" ? "info" : "bad", t: errText(r.error, r.error === "too_early" ? `${mmss(r.left)} 남았어요.` : r.error === "too_far" ? `(약 ${r.meters}m)` : "") };
     } else if (r.state === "ACTIVE") {
@@ -213,13 +231,14 @@ function vMy() {
       <div style="margin-top:14px"><div class="row between small"><span class="num" style="font:800 20px var(--display)">LV ${L.lv}</span><span class="muted num">${L.into} / ${L.need} XP</span></div><div class="bar" style="margin-top:6px"><i style="width:${L.into / L.need * 100}%"></i></div></div>
       <div class="idgrid"><div><b class="num">${h.me.xp.toLocaleString()}</b><span>누적 XP</span></div><div><b class="num">${h.total_count}</b><span>참여 횟수</span></div><div><b class="num">${h.week_count}</b><span>이번 주 참여</span></div><div><b class="num">${(h.missions || []).filter(m => m.done).length}</b><span>완료 미션</span></div></div>
     </section>
+    ${streakCard()}${growLinks()}
     <button class="card" data-act="sub" data-v="history" style="text-align:left;width:100%"><div class="row between"><span class="eyebrow">활동 기록</span><span class="back">보기 ›</span></div><p class="small muted" style="margin:6px 0 0">출석과 XP가 언제 들어왔는지 볼 수 있어요.</p></button>
   </div>`;
 }
 
 /* ---------- RANKING ---------- */
 function vRank() {
-  const h = S.home, tch = !h.me.grade, cls = !tch && S.rankMode === "class", g = S.raceGrade || h.me.grade, b = S.races[g];
+  const h = S.home, tch = !h.me.grade, fr = S.rankMode === "free", cls = !tch && !fr && S.rankMode === "class", g = S.raceGrade || h.me.grade, b = S.races[g];
   let body = "";
   if (cls) {
     const c = b && g === h.me.grade ? chaseOf(b, h.me.class) : null;
@@ -233,9 +252,9 @@ function vRank() {
       <div class="stack" style="gap:8px">${r.top.map(p => `<div class="rk ${p.me ? "me" : ""}"><div class="pos num p${p.rank}">${p.rank}</div><div><b>${p.me ? esc(h.me.name) + " (나)" : esc(p.name)}</b><div class="mini"><span>${h.me.grade ? `${h.me.grade}학년 ${p.class}반` : "선생님"}</span></div></div><div class="sc num">${p.xp.toLocaleString()}<small>XP</small></div></div>`).join("")}</div>`;
   }
   return `<div class="stack">${topline()}
-    <div class="pagehead"><span class="eyebrow">순위${cls && b ? ` · ${g}학년 · ${racePeriod(b)}` : ""}</span><h2>${tch ? "선생님 참여 순위" : cls ? "학급 레이스" : "개인 랭킹"}</h2></div>
-    ${tch ? "" : `<div class="seg"><button data-act="rank" data-v="class" class="${cls ? "on" : ""}">학급 레이스</button><button data-act="rank" data-v="person" class="${cls ? "" : "on"}">개인</button></div>`}
-    ${body}</div>`;
+    <div class="pagehead"><span class="eyebrow">순위${cls && b ? ` · ${g}학년 · ${racePeriod(b)}` : ""}</span><h2>${fr ? "자유운동 순위" : tch ? "선생님 참여 순위" : cls ? "학급 레이스" : "개인 랭킹"}</h2></div>
+    <div class="seg" style="grid-template-columns:repeat(${tch ? 2 : 3},1fr)">${(tch ? [["person", "참여 순위"], ["free", "자유운동"]] : [["class", "학급 레이스"], ["person", "개인"], ["free", "자유운동"]]).map(x => `<button data-act="rank" data-v="${x[0]}" class="${x[0] === (fr ? "free" : cls ? "class" : "person") ? "on" : ""}">${x[1]}</button>`).join("")}</div>
+    ${fr ? freeRankHTML() : body}</div>`;
 }
 
 /* 카카오톡·네이버·인스타그램 같은 앱 안 브라우저에서는 설치가 안 돼서 알려 줘요 */
@@ -253,25 +272,25 @@ function externalUrl(ia) {
 function subHead(eb, title) { return `${topline()}<button class="back" data-act="sub" data-v="">${IC.back} 더보기</button><div class="pagehead"><span class="eyebrow">${eb}</span><h2>${title}</h2></div>`; }
 function vMore() {
   const n = openMissions().length;
-  const items = [["mission", "오늘의 미션", n ? `남은 미션 ${n}개` : "선생님이 낸 미션 하기"], ["pops", "POPS", "내 체력 기록과 등급 기준"], ["history", "활동 기록", "내 출석과 XP 내역"], ["install", "휴대폰에 설치", "홈 화면에 앱 아이콘 만들기"], ["settings", "설정", "비밀번호 바꾸기, 로그아웃"]];
+  const items = [["mission", "오늘의 미션", n ? `남은 미션 ${n}개` : "선생님이 낸 미션 하기"], ["chal", "도전", "도전과 우리 반 공동목표"], ["cal", "운동 달력", "언제 어떤 운동을 했는지"], ["report", "월간 리포트", "지난달의 나와 비교"], ["badges", "배지", "모은 배지와 다음 목표"], ["dex", "운동 도감", "경험한 종목 모으기"], ["pops", "POPS", "내 체력 기록과 등급 기준"], ["history", "활동 기록", "내 출석과 XP 내역"], ["install", "휴대폰에 설치", "홈 화면에 앱 아이콘 만들기"], ["settings", "설정", "비밀번호 바꾸기, 로그아웃"]];
   return `<div class="stack">${topline()}<div class="pagehead"><span class="eyebrow">농소스포츠스쿨</span><h2>더보기</h2></div>
     <div class="menu">${items.map(i => `<button data-act="sub" data-v="${i[0]}"><span class="k">${i[1]}${i[0] === "mission" && n ? " " + BELL(n) : ""}</span><span class="d">${i[2]}</span><span class="muted">›</span></button>`).join("")}</div></div>`;
 }
 /* 주요 기능 안내: 아직 만들지 않은 기능은 링크 없이 '준비 중'으로만 보여요 */
 const GUIDE = [
   ["✅", "운동인증", "학교에서 진행되는 운동에 참여하고 QR로 운동을 인증해요.", ["tab", "check"]],
-  ["🏃", "자유운동", "하교 후나 주말에도 걷기·달리기 등 스스로 한 운동을 기록해요.", null],
+  ["🏃", "자유운동", "하교 후나 주말에도 걷기·달리기 등 스스로 한 운동을 기록해요.", ["free", ""]],
   ["🌅", "아침미션", "선생님이 제시하는 아침 운동 미션에 도전해요.", ["sub", "mission"]],
   ["⭐", "경험치(XP) & 레벨", "운동하고 도전하면 경험치가 쌓이고 나의 레벨이 성장해요.", ["tab", "my"]],
-  ["🎯", "도전", "오늘의 도전, 주간 도전 등 다양한 운동 목표에 도전해요.", null],
-  ["🔥", "꾸준한 운동", "연속 참여, 운동 횟수, 운동시간 등 나의 꾸준한 활동을 확인해요.", null],
-  ["📅", "운동 달력", "내가 언제, 어떤 운동을 했는지 달력으로 한눈에 확인해요.", null],
-  ["🏅", "배지", "다양한 운동 목표를 달성하고 특별한 배지를 모아요.", null],
-  ["🧭", "운동 도감", "내가 직접 경험한 다양한 스포츠 종목을 하나씩 모아가요.", null],
+  ["🎯", "도전", "오늘의 도전, 주간 도전 등 다양한 운동 목표에 도전해요.", ["sub", "chal"]],
+  ["🔥", "꾸준한 운동", "연속 참여, 운동 횟수, 운동시간 등 나의 꾸준한 활동을 확인해요.", ["tab", "my"]],
+  ["📅", "운동 달력", "내가 언제, 어떤 운동을 했는지 달력으로 한눈에 확인해요.", ["sub", "cal"]],
+  ["🏅", "배지", "다양한 운동 목표를 달성하고 특별한 배지를 모아요.", ["sub", "badges"]],
+  ["🧭", "운동 도감", "내가 직접 경험한 다양한 스포츠 종목을 하나씩 모아가요.", ["sub", "dex"]],
   ["💪", "POPS", "나의 체력 기록을 확인하고 이전의 나보다 얼마나 성장했는지 확인해요.", ["sub", "pops"]],
   ["🏆", "최고 기록", "나의 이전 기록을 넘어 새로운 개인 최고 기록에 도전해요.", ["sub", "pops"]],
-  ["👥", "우리 반 공동목표", "친구들과 함께 운동하며 우리 반의 공동 목표를 달성해요.", null],
-  ["📊", "월간 리포트", "한 달 동안의 운동 횟수, 운동시간, 걸음 수, 경험치 등 나의 성장을 확인해요.", null]
+  ["👥", "우리 반 공동목표", "친구들과 함께 운동하며 우리 반의 공동 목표를 달성해요.", ["sub", "chal"]],
+  ["📊", "월간 리포트", "한 달 동안의 운동 횟수, 운동시간, 걸음 수, 경험치 등 나의 성장을 확인해요.", ["sub", "report"]]
 ];
 function vGuide() {
   const card = ([ic, name, desc, go]) => {
@@ -290,6 +309,11 @@ function vSub() {
   if (k === "mission") return vMissions();
   if (k === "mrun") return vMissionRun();
   if (k === "pops") return vPops();
+  if (k === "cal") return vCal();
+  if (k === "report") return vReport();
+  if (k === "badges") return vBadges();
+  if (k === "dex") return vDex();
+  if (k === "chal") return vChal();
   if (k === "history") {
     const h = S.hist;
     return `<div class="stack">${subHead("내 기록", "활동 기록")}${!h ? '<div class="card muted">불러오는 중이에요…</div>' : `
@@ -436,6 +460,270 @@ async function mFinish(m) {
 }
 function stopAll() { stopScan(); if (runner) { runner.stop(); runner = null; } if (walker) { walker.stop(); walker = null; } }
 
+/* ---------- 자유운동 ---------- */
+const FKIND = {
+  walk: { name: "걷기", icon: "🚶", steps: true, tip: "휴대폰을 손에 들거나 주머니에 넣고 걸어요." },
+  run: { name: "달리기", icon: "🏃", steps: true, tip: "휴대폰을 손에 들거나 주머니에 넣고 달려요." },
+  jumprope: { name: "줄넘기", icon: "🤸", steps: false, tip: "휴대폰을 주머니에 넣고 줄넘기를 해요. 횟수는 세지 않고 운동시간을 기록해요." },
+  hometrain: { name: "홈트레이닝", icon: "💪", steps: false, tip: "휴대폰을 주머니에 넣거나 몸 가까이 두고 운동해요. 운동시간을 기록해요." }
+};
+const FSTAT = { OK: ["COMPLETED", "인정"], APPROVED: ["MANUAL", "선생님 인정"], SHORT: ["WAITING", "시간 부족"], REVIEW: ["ACTIVE", "선생님 확인 중"], REJECTED: ["FAILED", "인정 안 됨"] };
+const fTag = st => `<span class="state st-${(FSTAT[st] || ["WAITING"])[0]}">${(FSTAT[st] || [, st])[1]}</span>`;
+const mins = s => Math.floor((s || 0) / 60);
+const FW_KEY = "ns_fw";
+let fwWalker = null;
+async function loadFree() { S.free = await call("student_free_state"); S.offset = new Date(S.free.now).getTime() - Date.now(); syncFw(); return S.free; }
+/* 이 휴대폰에서 센 걸음은 서버에 보내기 전까지 휴대폰에 잠깐 저장해요 (앱을 다시 열어도 이어서 셀 수 있게) */
+function syncFw() {
+  const a = S.free?.active;
+  if (!a) { S.fw = null; store.set(FW_KEY, null); return; }
+  if (S.fw && S.fw.id === a.id) return;
+  let saved = null; try { saved = JSON.parse(store.get(FW_KEY) || "null"); } catch {}
+  const fw = { id: a.id, kind: a.kind, start: new Date(a.started_at).getTime(), steps: 0, moves: 0, minutes: [], off: 0, hiddenAt: 0, seen: Date.now(), on: false };
+  if (saved && saved.id === a.id) {
+    Object.assign(fw, { steps: saved.steps || 0, moves: saved.moves || 0, minutes: saved.minutes || [], off: saved.off || 0 });
+    if (saved.seen) fw.off += Math.max(0, (Date.now() - saved.seen) / 1000 - 5);   // 앱을 닫아 둔 동안은 화면이 꺼진 시간으로 쳐요
+  }
+  S.fw = fw; saveFw();
+}
+function saveFw() { const f = S.fw; if (!f) return; f.seen = Date.now(); store.set(FW_KEY, JSON.stringify({ id: f.id, steps: f.steps, moves: f.moves, minutes: f.minutes, off: f.off, seen: f.seen })); }
+const fwElapsed = () => S.fw ? Math.max(0, (serverNow() - S.fw.start) / 1000 - S.fw.off - (S.fw.hiddenAt ? (Date.now() - S.fw.hiddenAt) / 1000 : 0)) : 0;
+function fwStatus(t, k) { const el = document.querySelector('[data-f="status"]'); if (el) { el.textContent = t; el.className = "msg small " + (k || "info"); el.style.fontWeight = "500"; } }
+function fwStep(n) {
+  const f = S.fw; if (!f) return;
+  if (FKIND[f.kind].steps) {
+    f.steps += n; const i = Math.max(0, Math.floor((serverNow() - f.start) / 60000));
+    while (f.minutes.length <= i) f.minutes.push(0);
+    f.minutes[i] += n;
+    const el = document.querySelector('[data-f="steps"]'); if (el) el.textContent = f.steps.toLocaleString();
+  } else {
+    f.moves += n;
+    const el = document.querySelector('[data-f="moves"]'); if (el && f.moves === 1) el.textContent = "움직임 감지됨";
+  }
+  if ((f.steps + f.moves) % 10 === 0) saveFw();
+}
+async function fwSense() {
+  if (!S.fw) return;
+  if (!fwWalker) fwWalker = createWalker(fwStep, fwStatus);
+  const ok = await fwWalker.start();
+  S.fw.on = ok;
+  const b = document.querySelector('[data-act="fwsense"]'); if (b) b.hidden = ok;
+}
+function fwStopSense() { if (fwWalker) { fwWalker.stop(); fwWalker = null; } if (S.fw) S.fw.on = false; }
+document.addEventListener("visibilitychange", () => {
+  const f = S.fw; if (!f) return;
+  if (document.hidden) { if (!f.hiddenAt) f.hiddenAt = Date.now(); saveFw(); }
+  else if (f.hiddenAt) {
+    f.off += (Date.now() - f.hiddenAt) / 1000; f.hiddenAt = 0; saveFw();
+    if (S.tab === "check" && S.checkMode === "free") { render(); if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission !== "function") fwSense(); }
+  }
+});
+setInterval(saveFw, 5000);
+
+function checkSeg() {
+  const m = S.checkMode;
+  return `<div class="seg"><button data-act="cmode" data-v="school" class="${m === "school" ? "on" : ""}">학교 운동인증</button><button data-act="cmode" data-v="free" class="${m === "free" ? "on" : ""}">자유운동${S.fw ? " ●" : ""}</button></div>`;
+}
+function vFree() {
+  const F = S.free;
+  const top = `${topline()}${checkSeg()}`;
+  if (!F) return `<div class="stack">${top}<div class="card muted">불러오는 중이에요…</div></div>`;
+  const cfg = F.cfg || {}, basis = cfg.basis || "time";
+  const rule = basis === "steps" ? `걷기·달리기는 ${Number(cfg.min_steps).toLocaleString()}걸음, 줄넘기·홈트레이닝은 ${mins(cfg.min_secs)}분`
+    : basis === "both" ? `${mins(cfg.min_secs)}분 이상 (걷기·달리기는 ${Number(cfg.min_steps).toLocaleString()}걸음도)` : `${mins(cfg.min_secs)}분 이상`;
+  if (S.fwDone) {
+    const d = S.fwDone, k = FKIND[d.kind];
+    const msg = d.status === "OK" ? (d.xp ? "운동이 인정됐어요!" : "기록은 저장됐어요. 오늘 받을 수 있는 XP는 다 받았어요.")
+      : d.status === "REVIEW" ? "기록은 저장됐어요. 선생님이 한 번 확인하고 있어요." : d.flags?.includes("nomove") ? "휴대폰 움직임이 없어서 인정되지 않았어요. 기록은 저장됐어요." : `기록은 저장됐어요. ${rule}을 채우면 XP를 받아요.`;
+    return `<div class="stack">${top}<div class="card xpburst">${fTag(d.status)}<b class="num">${d.xp ? "+" + d.xp : k.icon}</b>${d.xp ? '<div class="eyebrow" style="color:var(--fg)">XP 획득</div>' : ""}
+      <p style="margin:10px 0 4px;font-weight:700">${msg}</p><p class="small muted" style="margin:0">${k.name} · ${mmss(d.active_secs)}${k.steps ? ` · 추정 ${Number(d.steps).toLocaleString()}걸음` : ""}</p>
+      <button class="btn ghost" data-act="fwnew" style="margin-top:14px">확인</button></div></div>`;
+  }
+  if (S.fw) {
+    const f = S.fw, k = FKIND[f.kind], el = fwElapsed();
+    return `<div class="stack">${top}
+      <div class="pagehead"><span class="eyebrow">자유운동 · 측정 중</span><h2>${k.icon} ${k.name}</h2></div>
+      <div class="card stack fwrun" style="align-items:center;text-align:center">
+        <div class="fwbig num" data-live="fwtime">${clock(el)}</div><span class="small muted">운동시간</span>
+        ${k.steps ? `<div class="fwsteps"><b class="num" data-f="steps">${f.steps.toLocaleString()}</b><span>추정 걸음</span></div>` : `<div class="fwsteps"><b data-f="moves" style="font-size:16px">${f.moves ? "움직임 감지됨" : "움직임을 기다리는 중"}</b></div>`}
+        <button class="btn teal" data-act="fwsense" ${f.on ? "hidden" : ""}>${f.steps || f.moves ? "이어서 측정" : "측정 시작"}</button>
+        <div class="msg info small" data-f="status" style="width:100%;font-weight:500">${f.on ? "측정 중이에요. 화면을 켜 둔 채로 운동해요." : "측정 시작을 누르면 휴대폰 센서로 움직임을 세요."}</div>
+        <button class="hold" data-hold="fwend" aria-label="길게 눌러 운동 종료"><i></i><span>길게 눌러 운동 종료</span></button>
+        <button class="back" data-act="fwcancel" style="margin:0 auto">기록하지 않고 취소</button></div>
+      <p class="small muted" style="margin:0">${k.tip} 화면이 꺼지거나 다른 앱을 보는 동안은 시간과 걸음을 세지 않아요. 인정 기준: ${rule}. 걸음 수는 추정값이라 삼성 헬스와 다를 수 있어요.</p></div>`;
+  }
+  const kinds = (cfg.kinds || Object.keys(FKIND)).filter(k => FKIND[k]);
+  const left = Math.max(0, (cfg.daily_count ?? 2) - F.today.count);
+  return `<div class="stack">${top}
+    <div class="pagehead"><span class="eyebrow">자유운동</span><h2>학교 밖에서도 운동을 기록해요</h2>
+      <p class="small muted" style="margin:0">하교 후나 주말에 한 운동을 골라서 시작해요. ${rule}이면 인정돼요.</p></div>
+    ${cfg.on === false ? `<div class="msg info">${errText("free_off")}</div>` : `<div class="fkinds">${kinds.map(k => `<button class="fkind" data-act="fwstart" data-v="${k}"><span>${FKIND[k].icon}</span><b>${FKIND[k].name}</b><small>+${(cfg.xp || {})[k] ?? 20} XP</small></button>`).join("")}</div>`}
+    <div class="msg ${left ? "info" : "ok"} small" style="font-weight:500">${left ? `오늘 XP를 받을 수 있는 자유운동이 ${left}번 남았어요.` : "오늘 받을 수 있는 자유운동 XP는 다 받았어요. 운동 기록은 계속 남길 수 있어요."}</div>
+    <div class="row between"><h3 style="font-size:17px">내 자유운동 기록</h3><button class="back" data-act="tab" data-v="rank" data-rank="free">자유운동 순위 ›</button></div>
+    ${F.recent.length ? `<div class="stack" style="gap:8px">${F.recent.map(w => `<div class="card fwrow"><span class="fico">${FKIND[w.kind]?.icon || "🏅"}</span><div style="flex:1;min-width:0"><b>${FKIND[w.kind]?.name || w.kind}</b><div class="small muted">${fmtDT(w.started_at)} · ${mmss(w.active_secs)}${w.steps ? ` · ${Number(w.steps).toLocaleString()}걸음` : ""}</div></div><div style="text-align:right">${fTag(w.status)}${w.xp ? `<div class="small num" style="margin-top:4px;color:var(--court-deep);font-weight:700">+${w.xp} XP</div>` : ""}</div></div>`).join("")}</div>`
+      : '<div class="card small muted">아직 자유운동 기록이 없어요. 위에서 운동을 골라 시작해 보세요.</div>'}
+    <p class="small muted" style="margin:0">위치, 이동 경로, 심박수 같은 정보는 받지 않아요. 운동 종류, 시간, 걸음 수만 저장해요.</p></div>`;
+}
+async function fwStart(kind) {
+  try {
+    const r = await call("student_free_start", { p_kind: kind });
+    if (r.error) return toast(errText(r.error));
+    S.fwDone = null; store.set(FW_KEY, null); S.fw = null;
+    await loadFree(); render(); window.scrollTo(0, 0);
+    fwSense();
+  } catch (e) { toast(errText(e.code)); }
+}
+let fwEnding = false;
+async function fwEnd() {
+  const f = S.fw; if (!f || fwEnding) return; fwEnding = true;
+  fwStopSense();
+  if (f.hiddenAt) { f.off += (Date.now() - f.hiddenAt) / 1000; f.hiddenAt = 0; }
+  const before = levelOf(S.home.me.xp).lv;
+  try {
+    const r = await call("student_free_finish", { p_id: f.id, p_steps: FKIND[f.kind].steps ? f.steps : f.moves, p_minutes: f.minutes, p_off: Math.round(f.off) });
+    if (r.error && r.error !== "already") toast(errText(r.error));
+    else if (!r.error) {
+      S.fwDone = { ...r, kind: f.kind };
+      if (r.xp) { say("운동 완료"); if (levelOf(r.total_xp).lv > before) toast(`레벨 업! 이제 LV ${levelOf(r.total_xp).lv}이에요.`); }
+    }
+    store.set(FW_KEY, null); S.fw = null;
+    await Promise.all([loadFree(), loadHome()]); loadProgress();
+  } catch (e) { toast(errText(e.code)); }
+  fwEnding = false; render(); window.scrollTo(0, 0);
+}
+/* 길게 눌러야 끝나요 (주머니 속에서 잘못 눌리지 않게) */
+let holdT = 0;
+document.addEventListener("pointerdown", e => { const h = e.target.closest("[data-hold]"); if (!h) return; h.classList.add("holding"); clearTimeout(holdT); holdT = setTimeout(() => { h.classList.remove("holding"); if (h.dataset.hold === "fwend") fwEnd(); }, 1200); });
+["pointerup", "pointercancel", "pointerleave"].forEach(ev => document.addEventListener(ev, e => { const h = e.target.closest && e.target.closest("[data-hold]"); if (h || ev !== "pointerleave") { clearTimeout(holdT); document.querySelectorAll(".hold.holding").forEach(x => x.classList.remove("holding")); } }, true));
+
+/* ---------- 성장: 꾸준한 운동 · 배지 · 운동 도감 ---------- */
+async function loadProgress() {
+  try {
+    S.prog = await call("student_progress");
+    const nb = S.prog.new_badges || [];
+    if (nb.length) toast(`새 배지! ${nb.map(b => b.icon + " " + b.name).join(", ")}`);
+    if (S.view === "app") render();
+  } catch {}
+}
+function streakCard() {
+  const P = S.prog; if (!P) return "";
+  const s = P.streak, w = P.week;
+  return `<section class="card stack" style="gap:12px">
+    <div class="row between"><span class="eyebrow">꾸준한 운동</span><button class="back" data-act="sub" data-v="cal">운동 달력 ›</button></div>
+    <div class="row" style="gap:12px;align-items:center"><div class="streakfire">🔥</div><div><b style="font-size:20px">${s.cur ? `${s.cur}회 연속 참여 중` : "다음 운동부터 연속 기록을 시작해요"}</b>
+      <div class="small muted">최고 ${s.best}회 · 이번 달 최고 ${s.month_best}회 · 학교 운동이 열린 날만 세요</div></div></div>
+    <div class="stat3 light"><div><b class="num">${w.count}</b><span>이번 주 운동</span></div><div><b class="num">${w.minutes}<small>분</small></b><span>이번 주 운동시간</span></div><div><b class="num">+${w.xp}</b><span>이번 주 XP</span></div></div></section>`;
+}
+function growLinks() {
+  const P = S.prog, nb = P ? P.badges.filter(b => b.earned_at).length : 0, ns = P ? P.sports.filter(x => x.times).length : 0;
+  const L = [["cal", "📅", "운동 달력", "언제 운동했는지"], ["report", "📊", "월간 리포트", "지난달의 나와 비교"], ["badges", "🏅", "배지", P ? `${nb} / ${P.badges.length}개 모음` : "모은 배지"], ["dex", "🧭", "운동 도감", P ? `${ns} / ${P.sports.length}종목 경험` : "경험한 종목"], ["chal", "🎯", "도전", "목표에 도전하기"], ["free", "🏃", "자유운동", "학교 밖 운동 기록"]];
+  return `<div class="glinks">${L.map(l => `<button class="glink" ${l[0] === "free" ? 'data-act="free"' : `data-act="sub" data-v="${l[0]}"`}><span>${l[1]}</span><b>${l[2]}</b><small>${l[3]}</small></button>`).join("")}</div>`;
+}
+function vBadges() {
+  const P = S.prog;
+  return `<div class="stack">${subHead("내 기록", "배지")}${!P ? '<div class="card muted">불러오는 중이에요…</div>' : `
+    <p class="small muted" style="margin:0">운동 목표를 채우면 배지가 자동으로 생겨요. 아직 못 받은 배지는 조건과 지금 기록을 보여줘요.</p>
+    <div class="bgrid">${P.badges.map(b => { const got = !!b.earned_at, pct = Math.min(100, Math.round(b.value / b.goal * 100));
+      return `<div class="badge ${got ? "got" : ""}"><div class="bico">${got ? b.icon : "🔒"}</div><b>${esc(b.name)}</b>
+        ${got ? `<small>${fmtDay(b.earned_at)} 받음</small>` : `<small class="num">${Number(Math.min(b.value, b.goal)).toLocaleString()} / ${Number(b.goal).toLocaleString()}</small><div class="pbar"><i style="width:${pct}%"></i></div>`}</div>`; }).join("")}</div>`}</div>`;
+}
+function vDex() {
+  const P = S.prog;
+  if (!P) return `<div class="stack">${subHead("내 기록", "운동 도감")}<div class="card muted">불러오는 중이에요…</div></div>`;
+  const n = P.sports.filter(x => x.times).length;
+  return `<div class="stack">${subHead("내 기록", "운동 도감")}
+    <div class="card row between"><div><span class="eyebrow">경험한 종목</span><div style="font:800 34px/1.1 var(--display);margin-top:6px"><span style="color:var(--court)">${n}</span><small class="muted" style="font-size:18px"> / ${P.sports.length}</small></div></div><span style="font-size:40px">🧭</span></div>
+    <div class="dex">${P.sports.map(x => `<div class="dexc ${x.times ? "got" : ""}"><span>${x.times ? x.icon : "❔"}</span><b>${esc(x.name)}</b><small>${x.times ? `${x.times}번 · 처음 ${fmtDay(x.first)}` : "아직 안 해 봤어요"}</small></div>`).join("")}</div>
+    <p class="small muted" style="margin:0">학교 운동에서 선생님이 정한 종목, 미션, 자유운동 종류가 모여요. 새로운 운동에 도전해 보세요!</p></div>`;
+}
+
+/* ---------- 운동 달력 ---------- */
+const SRC = { school: ["학교 운동", "var(--court)"], mission: ["미션", "var(--gold)"], free: ["자유운동", "var(--data)"] };
+const itemName = it => it.src === "school" ? it.label + (it.sport ? ` · ${it.sport}` : "") : it.src === "mission" ? `미션 · ${MKIND[it.label]?.name || ""}` : `자유운동 · ${FKIND[it.label]?.name || ""}`;
+const ym = d => d.slice(0, 7), addMonth = (m, n) => { const [y, mo] = m.split("-").map(Number), t = y * 12 + mo - 1 + n; return `${Math.floor(t / 12)}-${String(t % 12 + 1).padStart(2, "0")}`; };
+async function loadCal(m) { S.calM = m; S.cal = null; render(); S.cal = await call("student_calendar", { p_month: m + "-01" }); if (!S.calM) S.calM = ym(S.cal.month); if (!S.calDay || ym(S.calDay) !== S.calM) S.calDay = ym(S.cal.today) === S.calM ? S.cal.today : null; render(); }
+function vCal() {
+  const C = S.cal, m = S.calM;
+  if (!C) return `<div class="stack">${subHead("내 기록", "운동 달력")}<div class="card muted">불러오는 중이에요…</div></div>`;
+  const [y, mo] = m.split("-").map(Number), first = new Date(y, mo - 1, 1).getDay(), days = new Date(y, mo, 0).getDate();
+  const by = {}; C.items.forEach(it => (by[it.day] ||= []).push(it));
+  const cells = [];
+  for (let i = 0; i < first; i++) cells.push("<div></div>");
+  for (let d = 1; d <= days; d++) {
+    const key = `${m}-${String(d).padStart(2, "0")}`, its = by[key] || [], srcs = [...new Set(its.map(x => x.src))];
+    cells.push(`<button class="cday ${its.length ? "has" : ""} ${key === C.today ? "today" : ""} ${key === S.calDay ? "sel" : ""}" data-act="calday" data-v="${key}"><span class="num">${d}</span><i>${srcs.map(s => `<em style="background:${SRC[s][1]}"></em>`).join("")}</i></button>`);
+  }
+  const sel = S.calDay ? by[S.calDay] || [] : [];
+  const monthCount = C.items.length, monthDays = Object.keys(by).length, monthMin = Math.floor(C.items.reduce((a, x) => a + x.secs, 0) / 60);
+  return `<div class="stack">${subHead("내 기록", "운동 달력")}
+    <section class="card stack" style="gap:12px">
+      <div class="row between"><button class="calnav" data-act="calm" data-v="${addMonth(m, -1)}" aria-label="지난달">‹</button><b style="font-size:18px">${y}년 ${mo}월</b><button class="calnav" data-act="calm" data-v="${addMonth(m, 1)}" aria-label="다음 달" ${m >= ym(C.today) ? "disabled" : ""}>›</button></div>
+      <div class="cal">${["일", "월", "화", "수", "목", "금", "토"].map(w => `<div class="cw">${w}</div>`).join("")}${cells.join("")}</div>
+      <div class="row small muted" style="gap:14px;flex-wrap:wrap">${Object.values(SRC).map(s => `<span class="row" style="gap:6px"><em class="dot" style="background:${s[1]}"></em>${s[0]}</span>`).join("")}</div></section>
+    <div class="stat3 light"><div><b class="num">${monthDays}</b><span>운동한 날</span></div><div><b class="num">${monthCount}</b><span>운동 횟수</span></div><div><b class="num">${monthMin}<small>분</small></b><span>운동시간</span></div></div>
+    ${S.calDay ? `<h3 style="font-size:17px">${fmtDay(S.calDay)}</h3>${sel.length ? `<div class="stack" style="gap:8px">${sel.map(it => `<div class="card fwrow"><em class="dot" style="background:${SRC[it.src][1]};width:10px;height:10px"></em><div style="flex:1"><b>${esc(itemName(it))}</b><div class="small muted">${fmtTime(it.at)} · ${mmss(it.secs)}${it.steps ? ` · ${Number(it.steps).toLocaleString()}걸음` : ""}</div></div></div>`).join("")}</div>` : '<div class="card small muted">이날은 운동 기록이 없어요.</div>'}` : ""}
+  </div>`;
+}
+
+/* ---------- 월간 리포트 ---------- */
+async function loadRep(m) { S.repM = m; S.rep = null; render(); S.rep = await call("student_report", { p_month: m ? m + "-01" : null }); if (!S.repM) S.repM = ym(S.rep.this.month); render(); }
+function vReport() {
+  const R = S.rep;
+  if (!R) return `<div class="stack">${subHead("내 기록", "월간 리포트")}<div class="card muted">불러오는 중이에요…</div></div>`;
+  const t = R.this, p = R.prev, [y, mo] = S.repM.split("-").map(Number), now = todayStr().slice(0, 7);
+  const row = (k, label, unit, icon) => { const d = t[k] - p[k];
+    return `<div class="rcard"><span class="rico">${icon}</span><div style="flex:1"><span class="small muted">${label}</span><div><b class="num" style="font-size:24px">${Number(t[k]).toLocaleString()}</b><small class="muted"> ${unit}</small></div></div>
+      <div class="small" style="text-align:right;color:${d > 0 ? "var(--good)" : "var(--muted)"}">${d > 0 ? `▲ ${Number(d).toLocaleString()}` : d < 0 ? `지난달 ${Number(p[k]).toLocaleString()}` : "지난달과 같아요"}</div></div>`; };
+  const better = ["days", "minutes", "school", "mission", "free", "steps", "xp"].filter(k => t[k] > p[k]).length;
+  return `<div class="stack">${subHead("내 기록", "월간 리포트")}
+    <div class="row between"><button class="calnav" data-act="repm" data-v="${addMonth(S.repM, -1)}" aria-label="지난달">‹</button><b style="font-size:18px">${y}년 ${mo}월</b><button class="calnav" data-act="repm" data-v="${addMonth(S.repM, 1)}" aria-label="다음 달" ${S.repM >= now ? "disabled" : ""}>›</button></div>
+    <section class="card rhero"><span class="eyebrow">이번 달의 나</span><b>${t.days ? `${t.days}일 동안 ${t.minutes}분 운동했어요` : "이번 달 첫 운동을 기다리고 있어요"}</b>
+      <p class="small muted" style="margin:6px 0 0">${better ? `지난달보다 ${better}가지 기록이 늘었어요!` : t.days ? "지난달의 나와 비교해 보세요." : "운동하면 여기에 이번 달 기록이 모여요."}</p></section>
+    <div class="stack" style="gap:8px">${row("days", "운동한 날", "일", "📅")}${row("minutes", "총 운동시간", "분", "⏱️")}${row("school", "학교 운동인증", "회", "🏫")}${row("mission", "미션", "회", "🌅")}${row("free", "자유운동", "회", "🏃")}${row("steps", "걸음 수 (추정)", "걸음", "👟")}${row("xp", "획득 경험치", "XP", "⭐")}</div>
+    <p class="small muted" style="margin:0">친구와 비교하지 않고, 지난달의 나와 비교해요. 최고 연속 참여 ${R.streak.best}회.</p></div>`;
+}
+
+/* ---------- 도전 · 우리 반 공동목표 ---------- */
+const CSCOPE = { day: "오늘의 도전", week: "주간 도전", period: "기간 도전", class: "우리 반 공동목표" };
+const CMET = { count: ["운동 참여", "회"], minutes: ["운동시간", "분"], days: ["운동한 날", "일"], steps: ["걸음 수", "걸음"], free: ["자유운동", "회"], school: ["학교 운동인증", "회"] };
+const CERR = { not_enough: "아직 목표를 다 채우지 못했어요.", already: "이미 보상을 받았어요.", closed: "보상을 받을 수 있는 기간이 끝났어요.", not_open: "아직 시작하지 않은 도전이에요.", not_found: "도전을 찾지 못했어요." };
+async function loadChal() { try { S.chal = await call("student_challenges"); if (S.view === "app") render(); } catch {} }
+const todayStr = () => new Date(serverNow() + 9 * 3600e3).toISOString().slice(0, 10);
+function cCard(c) {
+  const t = todayStr(), m = CMET[c.metric], pct = Math.min(100, Math.round(c.progress / c.goal * 100)), full = c.progress >= c.goal;
+  const ended = c.ends_on < t, soon = c.starts_on > t, canClaim = full && !c.done && !soon && t <= addDays(c.ends_on, 3);
+  return `<div class="card stack chal ${c.scope === "class" ? "cls" : ""}" style="gap:10px">
+    <div class="row between" style="gap:8px"><span class="chip">${CSCOPE[c.scope]}</span><span class="small muted num">${c.starts_on === c.ends_on ? fmtDay(c.starts_on) : `${fmtDay(c.starts_on)} ~ ${fmtDay(c.ends_on)}`}</span></div>
+    <b style="font-size:17px">${esc(c.title)}</b>
+    <div class="small muted">${c.scope === "class" ? "우리 반 모두의 " : ""}${m[0]} ${Number(c.goal).toLocaleString()}${m[1]} · 보상 +${c.xp} XP</div>
+    ${soon ? '<div class="msg info small">곧 시작해요.</div>' : `<div><div class="row between small"><span class="num"><b>${Number(Math.min(c.progress, c.goal)).toLocaleString()}</b> / ${Number(c.goal).toLocaleString()}${m[1]}</span><span class="num muted">${pct}%</span></div><div class="pbar big"><i style="width:${pct}%"></i></div></div>`}
+    ${c.done ? `<div class="msg ok small">달성했어요! +${c.done.xp} XP 받음</div>` : canClaim ? `<button class="btn" data-act="cclaim" data-v="${c.id}">🎉 보상 받기 +${c.xp} XP</button>` : ended ? '<div class="small muted">기간이 끝났어요.</div>' : full ? "" : `<div class="small muted">${c.scope === "class" ? "반 친구들과 함께 채워요" : "조금씩 채워 봐요"}. ${Number(c.goal - c.progress).toLocaleString()}${m[1]} 남았어요.</div>`}
+    ${c.scope === "class" && c.class_done ? `<div class="small muted">반 친구 ${c.class_done}명이 보상을 받았어요.</div>` : ""}</div>`;
+}
+const addDays = (d, n) => { const x = new Date(d + "T00:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+function vChal() {
+  const L = S.chal;
+  if (!L) return `<div class="stack">${subHead("더보기", "도전")}<div class="card muted">불러오는 중이에요…</div></div>`;
+  const t = todayStr(), cls = L.filter(c => c.scope === "class"), mine = L.filter(c => c.scope !== "class");
+  const now = x => x.filter(c => c.starts_on <= t && c.ends_on >= t), later = x => x.filter(c => c.starts_on > t), past = x => x.filter(c => c.ends_on < t);
+  const sec = (title, arr) => arr.length ? `<span class="eyebrow" style="margin-top:6px">${title}</span>${arr.map(cCard).join("")}` : "";
+  return `<div class="stack">${subHead("더보기", "도전")}
+    <p class="small muted" style="margin:0">학교 운동, 미션, 자유운동 기록이 모두 도전에 쌓여요. 목표를 채우면 보상 받기를 눌러요.</p>
+    ${S.home.me.grade ? `<h3 style="font-size:17px">👥 우리 반 공동목표</h3>${now(cls).map(cCard).join("") || '<div class="card small muted">지금 진행 중인 우리 반 공동목표가 없어요.</div>'}${sec("곧 시작", later(cls))}` : ""}
+    <h3 style="font-size:17px;margin-top:6px">🎯 나의 도전</h3>${now(mine).map(cCard).join("") || '<div class="card small muted">지금 진행 중인 도전이 없어요. 선생님이 도전을 열면 여기에 떠요.</div>'}${sec("곧 시작", later(mine))}
+    ${sec("지난 도전", past(L))}</div>`;
+}
+
+/* ---------- 자유운동 순위 ---------- */
+function freeRankHTML() {
+  const r = S.freeRank, h = S.home;
+  if (!r) return '<div class="card muted">불러오는 중이에요…</div>';
+  return `<div class="msg info small" style="font-weight:500">이번 주(${fmtDay(r.from)}부터) 인정된 자유운동 시간 순위예요. ${r.me ? `나는 ${r.total}명 중 <b>${r.me.rank}위</b>예요.` : "자유운동을 하면 순위에 들어가요."}</div>
+    ${r.top.length ? `<div class="stack" style="gap:8px">${r.top.map(p => `<div class="rk ${p.me ? "me" : ""}"><div class="pos num p${p.rank}">${p.rank}</div><div><b>${p.me ? esc(h.me.name) + " (나)" : esc(p.name)}</b><div class="mini"><span>${h.me.grade ? `${h.me.grade}학년 ${p.class}반` : "선생님"}</span>${p.steps ? `<span>${Number(p.steps).toLocaleString()}걸음</span>` : ""}</div></div><div class="sc num">${p.minutes}<small>분</small></div></div>`).join("")}</div>`
+      : '<div class="card small muted">이번 주에는 아직 자유운동 기록이 없어요. 첫 번째가 되어 보세요!</div>'}
+    <p class="small muted" style="margin:0">선생님 확인 중이거나 인정되지 않은 기록은 넣지 않아요. 날짜별 기록은 나와 선생님만 볼 수 있어요.</p>`;
+}
+
 /* ---------- 탭과 그리기 ---------- */
 function tabsBar() {
   const act = !!activeOf(), n = openMissions().length;
@@ -449,7 +737,7 @@ function render() {
   else if (S.view === "login") html = vLogin();
   else if (!S.home) html = `<div class="phone"><div class="card muted" style="margin-top:40px">불러오는 중이에요…</div></div>`;
   else {
-    const v = S.tab === "home" ? (S.sub === "guide" ? vGuide() : vHome()) : S.tab === "check" ? vCheck() : S.tab === "my" ? vMy() : S.tab === "rank" ? vRank() : S.sub ? vSub() : vMore();
+    const v = S.tab === "home" ? (S.sub === "guide" ? vGuide() : vHome()) : S.tab === "check" ? (S.checkMode === "free" ? vFree() : vCheck().replace(topline(), topline() + checkSeg())) : S.tab === "my" ? vMy() : S.tab === "rank" ? vRank() : S.sub ? vSub() : vMore();
     const gb = S.fromGuide && !(S.tab === "home" && S.sub === "guide") ? `<button class="gback" data-act="guide">${IC.back} 주요 기능으로 돌아가기</button>` : "";
     html = `<div class="phone ${S.tab === "rank" && S.rankMode === "class" && S.home?.me?.grade ? "wide" : ""}">${gb && v.includes(topline()) ? v.replace(topline(), topline() + gb) : gb + v}</div>${tabsBar()}`;
   }
@@ -459,7 +747,7 @@ function render() {
 function go() { if (S.view !== "splash") return; S.view = S.token ? "app" : "login"; render(); if (S.token) enterApp(); }
 async function enterApp() {
   S.view = "app"; render();
-  try { await loadHome(); render(); if (S.home.me.grade) loadRace(S.home.me.grade).then(render).catch(() => {}); }
+  try { await loadHome(); render(); if (S.home.me.grade) loadRace(S.home.me.grade).then(render).catch(() => {}); loadFree().then(render).catch(() => {}); loadProgress(); loadChal(); }
   catch (e) { if (e.code !== "session_expired") { S.home = null; $app.innerHTML = `<div class="phone"><div class="msg bad" style="margin-top:40px">${esc(errText(e.code))}</div><button class="btn" style="margin-top:12px" onclick="location.reload()">다시 시도</button></div>`; } return; }
   if (pendingScan) { const p = pendingScan; pendingScan = null; history.replaceState(null, "", location.pathname); doScan(p); }
 }
@@ -467,6 +755,7 @@ async function enterApp() {
 /* 1초마다 남은 시간만 고쳐요 */
 setInterval(() => {
   if (S.view !== "app" || !S.home) return;
+  if (S.fw) { const el = clock(fwElapsed()); const T = document.querySelector('[data-live="fwtime"]'); if (T) T.textContent = el; const H2 = document.querySelector('[data-live="homeFw"]'); if (H2) H2.firstChild.textContent = el; }
   const a = activeOf(); if (!a) return;
   const left = leftOf(a);
   const L = document.querySelector('[data-live="left"]');
@@ -513,27 +802,55 @@ function makeRunner() {
 document.addEventListener("click", async e => {
   const b = e.target.closest("[data-act]"); if (!b) return;
   const act = b.dataset.act, v = b.dataset.v;
-  if (act === "tab" || act === "sub" || act === "guide") S.fromGuide = !!b.closest(".glist");
+  if (act === "tab" || act === "sub" || act === "guide" || act === "free") S.fromGuide = !!b.closest(".glist");
   if (S.fromGuide) S.gScroll = window.scrollY;
   switch (act) {
     case "login-tab": S.loginTab = v; S.msg = null; render(); break;
     case "tab":
+      if (v === "check" && (!S.checkMode || b.closest(".glist"))) S.checkMode = S.fw && !b.closest(".glist") ? "free" : "school";
       stopScan(); S.tab = v; S.sub = null; S.msg = v === "check" ? S.msg : null; if (v !== "check") S.done = null; render(); window.scrollTo(0, 0);
       if (v === "rank") { if (S.home.me.grade) loadRace(S.raceGrade).then(render).catch(() => {}); if (!S.rank) call("student_rank").then(r => { S.rank = r; render(); }).catch(() => {}); }
       if (v === "home" || v === "check") loadHome().then(render).catch(() => {});
+      if (v === "check") loadFree().then(render).catch(() => {});
+      if (v === "my") loadProgress();
+      if (v === "home") loadChal();
+      if (v === "rank" && b.dataset.rank) { S.rankMode = b.dataset.rank; loadFreeRank(); }
       break;
+    case "free": stopScan(); S.tab = "check"; S.sub = null; S.checkMode = "free"; render(); window.scrollTo(0, 0); loadFree().then(render).catch(() => {}); break;
+    case "cmode": S.checkMode = v; stopScan(); S.msg = null; render(); if (v === "free") loadFree().then(render).catch(() => {}); break;
+    case "fwstart": fwStart(v); break;
+    case "fwsense": fwSense(); break;
+    case "fwcancel": if (!S.fw || !confirm("이번 운동을 기록하지 않고 취소할까요?")) break;
+      fwStopSense(); try { await call("student_free_cancel", { p_id: S.fw.id }); } catch {} store.set(FW_KEY, null); S.fw = null; await loadFree().catch(() => {}); render(); break;
+    case "fwnew": S.fwDone = null; render(); window.scrollTo(0, 0); break;
+    case "calday": S.calDay = v; render(); break;
+    case "calm": loadCal(v).catch(() => {}); break;
+    case "repm": loadRep(v).catch(() => {}); break;
+    case "cclaim": {
+      b.disabled = true;
+      try {
+        const r = await call("student_challenge_claim", { p_id: v });
+        if (r.error) toast(CERR[r.error] || errText(r.error)); else { say("도전 성공"); toast(`도전 달성! +${r.xp} XP`); }
+        await Promise.all([loadChal(), loadHome()]); loadProgress();
+      } catch (e) { toast(errText(e.code)); }
+      render(); break;
+    }
     case "guide": stopScan(); S.tab = "home"; S.sub = "guide"; render(); window.scrollTo(0, b.classList.contains("gback") ? S.gScroll || 0 : 0); break;
     case "pick": S.pick = v; S.tab = "check"; S.msg = null; S.done = null; render(); window.scrollTo(0, 0); break;
     case "pickstay": S.pick = v; S.msg = null; S.done = null; stopScan(); render(); break;
     case "scanstart": startScan(); break;
     case "scanstop": stopScan(); render(); break;
-    case "rank": S.rankMode = v; render(); if (v === "person") call("student_rank").then(r => { S.rank = r; render(); }).catch(() => {}); break;
+    case "rank": S.rankMode = v; render(); if (v === "person") call("student_rank").then(r => { S.rank = r; render(); }).catch(() => {}); if (v === "free") loadFreeRank(); break;
     case "rgrade": S.raceGrade = +v; render(); loadRace(+v).then(render).catch(() => {}); break;
     case "sub":
       S.tab = "more"; S.sub = v || null; render(); window.scrollTo(0, 0);
       if (v === "history") call("student_history").then(h => { S.hist = h; render(); }).catch(() => {});
       if (v === "mission") loadHome().then(render).catch(() => {});
       if (v === "pops") call("student_paps").then(r => { S.paps = r; render(); }).catch(() => {});
+      if (v === "cal") loadCal(S.calM || todayStr().slice(0, 7)).catch(() => {});
+      if (v === "report") loadRep(S.repM || null).catch(() => {});
+      if (v === "badges" || v === "dex") loadProgress();
+      if (v === "chal") loadChal();
       break;
     case "papsg": S.papsG = +v; render(); break;
     case "papss": S.papsS = v; render(); break;

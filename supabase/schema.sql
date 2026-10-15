@@ -880,6 +880,544 @@ begin
     from paps_records where student_id = s.id), '[]');
 end $$;
 
+-- ========== 자유운동 · 운동 달력 · 꾸준한 운동 · 배지 · 운동 도감 · 도전 · 월간 리포트 ==========
+-- 승인된 설계 보고서대로 표를 더해요. 기존 표의 데이터는 지우거나 바꾸지 않아요.
+-- 저장하지 않는 것: 위치, 이동 경로, 주소, 심박수, 건강 정보.
+
+-- 자유운동 설정 (관리교사가 바꿔요)
+alter table settings add column if not exists free_workout jsonb not null default
+  '{"on": true, "kinds": ["walk", "run", "jumprope", "hometrain"], "basis": "time", "min_secs": 600, "min_steps": 1000,
+    "daily_count": 2, "daily_xp": 40, "xp": {"walk": 20, "run": 20, "jumprope": 20, "hometrain": 20}}';
+
+-- 자유운동 측정 기록. 시간은 서버 시계로 재요
+create table if not exists workouts (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid not null references students on delete cascade,
+  kind text not null check (kind in ('walk', 'run', 'jumprope', 'hometrain')),
+  day date not null default seoul_today(),
+  started_at timestamptz not null default now(),
+  ended_at timestamptz,
+  active_secs int not null default 0,
+  steps int not null default 0,
+  minute_steps jsonb not null default '[]',
+  screen_off_secs int not null default 0,
+  status text not null default 'ACTIVE' check (status in ('ACTIVE', 'OK', 'SHORT', 'REVIEW', 'APPROVED', 'REJECTED')),
+  flags text[] not null default '{}',
+  xp int not null default 0,
+  reviewed_by uuid references teachers on delete set null
+);
+create index if not exists workouts_student on workouts (student_id, started_at desc);
+create unique index if not exists workouts_one_active on workouts (student_id) where status = 'ACTIVE';
+
+-- 운동 종목 (운동 도감)
+create table if not exists sports (
+  id serial primary key,
+  name text not null unique,
+  icon text not null default '🏅',
+  code text unique,                       -- 자유운동 종류와 연결 (walk, run, jumprope, hometrain)
+  sort int not null default 0,
+  active boolean not null default true
+);
+insert into sports (name, icon, code, sort) values
+  ('걷기', '🚶', 'walk', 1), ('달리기', '🏃', 'run', 2), ('줄넘기', '🤸', 'jumprope', 3), ('홈트레이닝', '💪', 'hometrain', 4),
+  ('농구', '🏀', null, 5), ('배드민턴', '🏸', null, 6), ('피구', '🤾', null, 7), ('축구', '⚽', null, 8), ('배구', '🏐', null, 9), ('탁구', '🏓', null, 10)
+on conflict (name) do nothing;
+alter table programs add column if not exists sport_id int references sports on delete set null;
+alter table qr_sessions add column if not exists sport_id int references sports on delete set null;
+
+-- QR 출석을 열 때 종목을 따로 고르지 않으면 프로그램의 기본 종목을 써요
+create or replace function qr_session_sport() returns trigger language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if new.sport_id is null then new.sport_id := (select sport_id from programs where id = new.program_id); end if;
+  return new;
+end $$;
+drop trigger if exists qr_session_sport on qr_sessions;
+create trigger qr_session_sport before insert on qr_sessions for each row execute function qr_session_sport();
+
+-- 배지
+create table if not exists badges (
+  id serial primary key,
+  code text not null unique,
+  name text not null,
+  icon text not null default '🏅',
+  kind text not null check (kind in ('total', 'school', 'morning', 'streak', 'free', 'steps', 'sports', 'challenges', 'missions', 'days')),
+  goal int not null check (goal between 1 and 10000000),
+  sort int not null default 0,
+  active boolean not null default true
+);
+insert into badges (code, name, icon, kind, goal, sort) values
+  ('first', '첫 운동', '🌱', 'total', 1, 1),
+  ('total10', '운동 10회', '🏃', 'total', 10, 2),
+  ('total30', '운동 30회', '🏅', 'total', 30, 3),
+  ('total100', '운동 100회', '🏆', 'total', 100, 4),
+  ('morning10', '아침 운동 10회', '🌅', 'morning', 10, 5),
+  ('streak3', '3회 연속 참여', '🔥', 'streak', 3, 6),
+  ('streak7', '7회 연속 참여', '⚡', 'streak', 7, 7),
+  ('free5', '자유운동 5회', '🏠', 'free', 5, 8),
+  ('steps10k', '누적 1만 걸음', '👟', 'steps', 10000, 9),
+  ('steps50k', '누적 5만 걸음', '🥾', 'steps', 50000, 10),
+  ('sports3', '종목 3개 경험', '🧭', 'sports', 3, 11),
+  ('sports5', '종목 5개 경험', '🗺️', 'sports', 5, 12),
+  ('mission5', '미션 5개 완료', '✅', 'missions', 5, 13),
+  ('challenge3', '도전 3개 달성', '🎯', 'challenges', 3, 14),
+  ('days20', '운동한 날 20일', '📅', 'days', 20, 15)
+on conflict (code) do nothing;
+create table if not exists student_badges (
+  student_id uuid not null references students on delete cascade,
+  badge_id int not null references badges on delete cascade,
+  earned_at timestamptz not null default now(),
+  seen boolean not null default false,
+  primary key (student_id, badge_id)
+);
+
+-- 도전과 우리 반 공동목표 (scope = class 이면 반 전체 기록을 더해요)
+create table if not exists challenges (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (length(title) between 1 and 60),
+  scope text not null check (scope in ('day', 'week', 'period', 'class')),
+  metric text not null check (metric in ('count', 'minutes', 'days', 'steps', 'free', 'school')),
+  goal int not null check (goal between 1 and 10000000),
+  xp int not null default 20 check (xp between 0 and 200),
+  starts_on date not null,
+  ends_on date not null,
+  target_grade int check (target_grade between 1 and 3),
+  target_class int check (target_class between 1 and 20),
+  created_by uuid references teachers on delete set null,
+  created_at timestamptz not null default now(),
+  check (ends_on >= starts_on)
+);
+create table if not exists challenge_done (
+  challenge_id uuid not null references challenges on delete cascade,
+  student_id uuid not null references students on delete cascade,
+  xp int not null default 0,
+  done_at timestamptz not null default now(),
+  primary key (challenge_id, student_id)
+);
+
+alter table workouts enable row level security;
+alter table sports enable row level security;
+alter table badges enable row level security;
+alter table student_badges enable row level security;
+alter table challenges enable row level security;
+alter table challenge_done enable row level security;
+drop policy if exists workouts_read on workouts;   create policy workouts_read on workouts for select using (is_staff());
+drop policy if exists sports_read on sports;       create policy sports_read on sports for select using (is_staff());
+drop policy if exists badges_read on badges;       create policy badges_read on badges for select using (is_staff());
+drop policy if exists sbadges_read on student_badges; create policy sbadges_read on student_badges for select using (is_staff());
+drop policy if exists chal_read on challenges;     create policy chal_read on challenges for select using (is_staff());
+drop policy if exists chdone_read on challenge_done; create policy chdone_read on challenge_done for select using (is_staff());
+
+-- ---------- 운동 기록 모으기 ----------
+-- 학교 QR 운동(완료·선생님 인정), 미션, 인정된 자유운동을 한 줄씩 모아요
+create or replace function activity_of(p_student uuid, p_from date, p_to date)
+returns table (day date, src text, secs int, steps int, sport_id int, label text, at timestamptz)
+language sql stable security definer set search_path = public, extensions as $$
+  select q.day, 'school'::text,
+         coalesce(greatest(0, extract(epoch from (a.out_at - a.in_at)))::int, p.min_seconds), 0, q.sport_id, p.name, coalesce(a.out_at, a.in_at, q.opened_at)
+  from attendance a join qr_sessions q on q.id = a.session_id join programs p on p.id = q.program_id
+  where a.student_id = p_student and a.state in ('COMPLETED', 'MANUAL') and q.day between p_from and p_to
+  union all
+  select (ms.submitted_at at time zone 'Asia/Seoul')::date, 'mission', coalesce(ms.secs, 0), case when m.kind = 'walk' then ms.value else 0 end,
+         (select id from sports where code = case when m.kind = 'walk' then 'walk' else 'hometrain' end), m.kind, ms.submitted_at
+  from mission_subs ms join missions m on m.id = ms.mission_id
+  where ms.student_id = p_student and (ms.submitted_at at time zone 'Asia/Seoul')::date between p_from and p_to
+  union all
+  select w.day, 'free', w.active_secs, w.steps, (select id from sports where code = w.kind), w.kind, coalesce(w.ended_at, w.started_at)
+  from workouts w where w.student_id = p_student and w.status in ('OK', 'APPROVED') and w.day between p_from and p_to
+$$;
+
+create or replace function metric_of(p_student uuid, p_metric text, p_from date, p_to date) returns int
+language sql stable security definer set search_path = public, extensions as $$
+  select coalesce(case p_metric
+    when 'count' then count(*)
+    when 'minutes' then sum(secs) / 60
+    when 'days' then count(distinct day)
+    when 'steps' then sum(steps)
+    when 'free' then count(*) filter (where src = 'free')
+    when 'school' then count(*) filter (where src = 'school') end, 0)::int
+  from activity_of(p_student, p_from, p_to) $$;
+
+-- 꾸준한 운동: 학교 운동이 열린 날만 세요. 운동이 없는 주말·방학에는 끊기지 않고, 오늘 아직 안 했어도 끊기지 않아요
+create or replace function streak_of(p_student uuid) returns json
+language plpgsql stable security definer set search_path = public, extensions as $$
+declare g int; today date := seoul_today(); m0 date := date_trunc('month', seoul_today())::date;
+  run int := 0; best int := 0; mrun int := 0; mbest int := 0; d record;
+begin
+  select grade into g from students where id = p_student;
+  for d in
+    select x.day, exists (select 1 from attendance a join qr_sessions q2 on q2.id = a.session_id
+                          where a.student_id = p_student and q2.day = x.day and a.state in ('COMPLETED', 'MANUAL')) as did
+    from (select distinct q.day from qr_sessions q where (q.target_grade is null or q.target_grade = g or g = 0) and q.day <= today) x
+    order by x.day
+  loop
+    if d.did then
+      run := run + 1;
+      if d.day >= m0 then mrun := mrun + 1; end if;
+    elsif d.day < today then
+      run := 0; mrun := 0;
+    end if;
+    best := greatest(best, run); mbest := greatest(mbest, mrun);
+  end loop;
+  return json_build_object('cur', run, 'best', best, 'month_best', mbest);
+end $$;
+
+-- 배지·도감에 쓰는 누적 숫자
+create or replace function stats_of(p_student uuid) returns jsonb
+language plpgsql stable security definer set search_path = public, extensions as $$
+declare r jsonb; rp int := (select race_program_id from settings where id = 1);
+begin
+  select jsonb_build_object(
+    'total', count(*), 'school', count(*) filter (where src = 'school'), 'free', count(*) filter (where src = 'free'),
+    'missions', count(*) filter (where src = 'mission'), 'steps', coalesce(sum(steps), 0), 'minutes', coalesce(sum(secs), 0) / 60,
+    'days', count(distinct day), 'sports', count(distinct sport_id))
+  into r from activity_of(p_student, date '2000-01-01', seoul_today());
+  return r || jsonb_build_object(
+    'morning', (select count(*) from attendance a join qr_sessions q on q.id = a.session_id where a.student_id = p_student and a.state in ('COMPLETED', 'MANUAL') and q.program_id = rp),
+    'streak', (streak_of(p_student) ->> 'best')::int,
+    'challenges', (select count(*) from challenge_done where student_id = p_student));
+end $$;
+
+-- 학생: 내 성장 (배지는 여기서 조건을 확인해서 줘요. 새 배지는 한 번만 알려요)
+create or replace function student_progress(p_token uuid) returns json
+language plpgsql security definer set search_path = public, extensions as $$
+declare s students; st jsonb; nb json; today date := seoul_today(); w0 date := date_trunc('week', seoul_today())::date;
+begin
+  s := session_student(p_token);
+  st := stats_of(s.id);
+  insert into student_badges (student_id, badge_id)
+    select s.id, b.id from badges b where b.active and coalesce((st ->> b.kind)::int, 0) >= b.goal
+  on conflict do nothing;
+  select json_agg(json_build_object('name', b.name, 'icon', b.icon) order by b.sort) into nb
+    from student_badges sb join badges b on b.id = sb.badge_id where sb.student_id = s.id and not sb.seen;
+  update student_badges set seen = true where student_id = s.id and not seen;
+  return json_build_object(
+    'stats', st, 'streak', streak_of(s.id), 'new_badges', coalesce(nb, '[]'),
+    'week', json_build_object('count', metric_of(s.id, 'count', w0, today), 'minutes', metric_of(s.id, 'minutes', w0, today),
+      'xp', (select coalesce(sum(amount), 0) from xp_ledger where student_id = s.id and amount > 0 and (created_at at time zone 'Asia/Seoul')::date >= w0)),
+    'badges', coalesce((select json_agg(json_build_object('id', b.id, 'name', b.name, 'icon', b.icon, 'kind', b.kind, 'goal', b.goal,
+        'value', coalesce((st ->> b.kind)::int, 0), 'earned_at', sb.earned_at) order by b.sort, b.id)
+      from badges b left join student_badges sb on sb.badge_id = b.id and sb.student_id = s.id where b.active or sb.earned_at is not null), '[]'),
+    'sports', coalesce((select json_agg(json_build_object('id', sp.id, 'name', sp.name, 'icon', sp.icon, 'first', f.first, 'times', coalesce(f.n, 0)) order by sp.sort, sp.id)
+      from sports sp left join (select a.sport_id, min(a.day) as first, count(*) as n from activity_of(s.id, date '2000-01-01', today) a where a.sport_id is not null group by a.sport_id) f on f.sport_id = sp.id
+      where sp.active or f.n > 0), '[]'));
+end $$;
+
+-- 학생: 운동 달력 (한 달)
+create or replace function student_calendar(p_token uuid, p_month date) returns json
+language plpgsql stable security definer set search_path = public, extensions as $$
+declare s students; m0 date := date_trunc('month', coalesce(p_month, seoul_today()))::date; m1 date;
+begin
+  s := session_student(p_token);
+  m1 := (m0 + interval '1 month - 1 day')::date;
+  return json_build_object('month', m0, 'today', seoul_today(), 'items', coalesce((
+    select json_agg(json_build_object('day', a.day, 'src', a.src, 'secs', a.secs, 'steps', a.steps, 'label', a.label,
+      'sport', (select name from sports where id = a.sport_id), 'at', a.at) order by a.at)
+    from activity_of(s.id, m0, m1) a), '[]'));
+end $$;
+
+-- 월간 리포트: 이번 달과 지난달의 나
+create or replace function month_summary(p_student uuid, p_m0 date) returns json
+language sql stable security definer set search_path = public, extensions as $$
+  select json_build_object('month', p_m0,
+    'school', count(*) filter (where src = 'school'), 'mission', count(*) filter (where src = 'mission'), 'free', count(*) filter (where src = 'free'),
+    'minutes', coalesce(sum(secs), 0) / 60, 'steps', coalesce(sum(steps), 0), 'days', count(distinct day),
+    'xp', (select coalesce(sum(amount), 0) from xp_ledger where student_id = p_student and amount > 0
+             and (created_at at time zone 'Asia/Seoul')::date between p_m0 and (p_m0 + interval '1 month - 1 day')::date))
+  from activity_of(p_student, p_m0, (p_m0 + interval '1 month - 1 day')::date) $$;
+create or replace function student_report(p_token uuid, p_month date) returns json
+language plpgsql stable security definer set search_path = public, extensions as $$
+declare s students; m0 date := date_trunc('month', coalesce(p_month, seoul_today()))::date;
+begin
+  s := session_student(p_token);
+  return json_build_object('this', month_summary(s.id, m0), 'prev', month_summary(s.id, (m0 - interval '1 month')::date), 'streak', streak_of(s.id));
+end $$;
+
+-- ---------- 자유운동 ----------
+create or replace function free_kind_name(k text) returns text language sql immutable as
+$$ select case k when 'walk' then '걷기' when 'run' then '달리기' when 'jumprope' then '줄넘기' when 'hometrain' then '홈트레이닝' else k end $$;
+
+-- 하루 인정 횟수·최대 XP 안에서 줄 수 있는 XP
+create or replace function free_xp_for(p_student uuid, p_kind text, p_day date, p_skip uuid) returns int
+language plpgsql stable security definer set search_path = public, extensions as $$
+declare cfg jsonb := (select free_workout from settings where id = 1); n int; used int;
+begin
+  select count(*), coalesce(sum(xp), 0) into n, used from workouts
+  where student_id = p_student and day = p_day and xp > 0 and id <> p_skip;
+  if n >= coalesce((cfg ->> 'daily_count')::int, 2) then return 0; end if;
+  return greatest(0, least(coalesce((cfg -> 'xp' ->> p_kind)::int, 20), coalesce((cfg ->> 'daily_xp')::int, 40) - used));
+end $$;
+
+create or replace function student_free_state(p_token uuid) returns json
+language plpgsql stable security definer set search_path = public, extensions as $$
+declare s students; today date := seoul_today();
+begin
+  s := session_student(p_token);
+  return json_build_object(
+    'cfg', (select free_workout from settings where id = 1), 'now', now(),
+    'active', (select json_build_object('id', id, 'kind', kind, 'started_at', started_at) from workouts where student_id = s.id and status = 'ACTIVE'),
+    'today', json_build_object('count', (select count(*) from workouts where student_id = s.id and day = today and xp > 0),
+                               'xp', (select coalesce(sum(xp), 0) from workouts where student_id = s.id and day = today)),
+    'recent', coalesce((select json_agg(x) from (
+      select id, kind, day, started_at, ended_at, active_secs, steps, status, flags, xp from workouts
+      where student_id = s.id and status <> 'ACTIVE' order by started_at desc limit 20) x), '[]'));
+end $$;
+
+-- 시작: 서버가 시작 시각을 적어요. 진행 중인 기록이 있으면 그건 끝내요
+create or replace function student_free_start(p_token uuid, p_kind text) returns json
+language plpgsql security definer set search_path = public, extensions as $$
+declare s students; cfg jsonb := (select free_workout from settings where id = 1); w workouts;
+begin
+  s := session_student(p_token);
+  if not coalesce((cfg ->> 'on')::boolean, true) then return json_build_object('error', 'free_off'); end if;
+  if not coalesce(cfg -> 'kinds' ? p_kind, false) then return json_build_object('error', 'bad_kind'); end if;
+  update workouts set status = 'SHORT', ended_at = now(), flags = array_append(flags, 'restarted')
+  where student_id = s.id and status = 'ACTIVE';
+  insert into workouts (student_id, kind) values (s.id, p_kind) returning * into w;
+  return json_build_object('id', w.id, 'kind', w.kind, 'started_at', w.started_at, 'now', now());
+end $$;
+
+create or replace function student_free_cancel(p_token uuid, p_id uuid) returns json
+language plpgsql security definer set search_path = public, extensions as $$
+declare s students;
+begin
+  s := session_student(p_token);
+  delete from workouts where id = p_id and student_id = s.id and status = 'ACTIVE';
+  return json_build_object('ok', true);
+end $$;
+
+-- 종료: 운동시간은 서버 시각으로 재고, 인정 조건과 이상 기록을 확인해요
+-- p_steps: 걷기·달리기는 걸음 수, 줄넘기·홈트레이닝은 휴대폰이 움직인 횟수(0이면 인정하지 않아요)
+-- p_minutes: 1분마다의 걸음 수 목록, p_off: 화면이 꺼져 있던 초
+create or replace function student_free_finish(p_token uuid, p_id uuid, p_steps int, p_minutes jsonb, p_off int) returns json
+language plpgsql security definer set search_path = public, extensions as $$
+declare s students; w workouts; cfg jsonb := (select free_workout from settings where id = 1);
+  dur int; act int; fl text[] := '{}'; st text; v_xp int := 0; stepk boolean; ok boolean; v_steps int; mins jsonb;
+  mins_n int; mins_max int; mins_distinct int; min_secs int; min_steps int;
+begin
+  s := session_student(p_token);
+  select * into w from workouts where id = p_id and student_id = s.id for update;
+  if not found then return json_build_object('error', 'not_found'); end if;
+  if w.status <> 'ACTIVE' then return json_build_object('error', 'already', 'status', w.status); end if;
+  min_secs := coalesce((cfg ->> 'min_secs')::int, 600); min_steps := coalesce((cfg ->> 'min_steps')::int, 1000);
+  dur := greatest(0, extract(epoch from (now() - w.started_at))::int);
+  act := greatest(0, dur - least(greatest(coalesce(p_off, 0), 0), dur));
+  if act > 10800 then act := 10800; fl := array_append(fl, 'long'); end if;
+  stepk := w.kind in ('walk', 'run');
+  v_steps := greatest(0, least(coalesce(p_steps, 0), 200000));
+  mins := case when stepk and jsonb_typeof(p_minutes) = 'array' then p_minutes else '[]'::jsonb end;
+  if jsonb_array_length(mins) > 300 then mins := '[]'::jsonb; end if;
+  if stepk then
+    select count(*), max(v::int), count(distinct v::int) into mins_n, mins_max, mins_distinct from jsonb_array_elements_text(mins) v;
+    if act >= 60 and v_steps / (act / 60.0) > 200 then fl := array_append(fl, 'fast'); end if;
+    if coalesce(mins_max, 0) > 200 then fl := array_append(fl, 'fast_minute'); end if;
+    if mins_n >= 5 and mins_distinct = 1 and mins_max > 0 then fl := array_append(fl, 'even'); end if;
+  end if;
+  ok := case coalesce(cfg ->> 'basis', 'time')
+          when 'steps' then (stepk and v_steps >= min_steps) or (not stepk and act >= min_secs)
+          when 'both' then act >= min_secs and (not stepk or v_steps >= min_steps)
+          else act >= min_secs end;
+  if not stepk and v_steps = 0 then ok := false; fl := array_append(fl, 'nomove'); end if;
+  if not ok then st := 'SHORT';
+  elsif fl && array['fast', 'fast_minute', 'even'] then st := 'REVIEW';
+  else
+    st := 'OK'; v_xp := free_xp_for(s.id, w.kind, w.day, w.id);
+    if v_xp = 0 then fl := array_append(fl, 'daily_limit'); end if;
+  end if;
+  update workouts set ended_at = now(), active_secs = act, steps = case when stepk then v_steps else 0 end, minute_steps = mins,
+    screen_off_secs = least(greatest(coalesce(p_off, 0), 0), dur), status = st, flags = fl, xp = v_xp
+  where id = w.id;
+  if v_xp > 0 then perform give_xp(s.id, v_xp, '자유운동 ' || free_kind_name(w.kind), 'workout:' || w.id); end if;
+  return json_build_object('ok', true, 'status', st, 'xp', v_xp, 'active_secs', act, 'steps', case when stepk then v_steps else 0 end, 'flags', fl,
+    'min_secs', min_secs, 'min_steps', min_steps, 'basis', coalesce(cfg ->> 'basis', 'time'), 'total_xp', (select xp from students where id = s.id));
+end $$;
+
+-- 자유운동 순위: 이번 주(월요일부터) 인정된 운동시간. 검토 중·반려 기록은 넣지 않아요
+create or replace function student_free_rank(p_token uuid) returns json
+language plpgsql stable security definer set search_path = public, extensions as $$
+declare s students; w0 date := date_trunc('week', seoul_today())::date;
+begin
+  s := session_student(p_token);
+  return (with t as (
+      select st.id, st.class, st.name, sum(w.active_secs) / 60 as minutes, sum(w.steps) as steps
+      from workouts w join students st on st.id = w.student_id
+      where st.grade = s.grade and st.active and w.status in ('OK', 'APPROVED') and w.day >= w0
+      group by st.id),
+    r as (select t.*, rank() over (order by minutes desc, steps desc) as rank from t)
+    select json_build_object('from', w0,
+      'top', coalesce((select json_agg(json_build_object('rank', rank, 'class', class, 'minutes', minutes, 'steps', steps, 'me', id = s.id,
+                  'name', case when s.grade = 0 then regexp_replace(name, '\s', '', 'g') else mask_name(name) end) order by rank) from r where rank <= 20), '[]'),
+      'me', (select json_build_object('rank', rank, 'minutes', minutes, 'steps', steps) from r where id = s.id),
+      'total', (select count(*) from t)));
+end $$;
+
+-- ---------- 도전 ----------
+create or replace function challenge_fits(c challenges, s students) returns boolean language sql stable as $$
+  select (c.target_grade is null or c.target_grade = s.grade) and (c.target_class is null or c.target_class = s.class)
+     and (c.scope <> 'class' or s.grade > 0) $$;
+create or replace function challenge_progress(c challenges, s students) returns int
+language sql stable security definer set search_path = public, extensions as $$
+  select case when c.scope = 'class'
+    then (select coalesce(sum(metric_of(m.id, c.metric, c.starts_on, least(c.ends_on, seoul_today()))), 0)::int from students m where m.active and m.grade = s.grade and m.class = s.class)
+    else metric_of(s.id, c.metric, c.starts_on, least(c.ends_on, seoul_today())) end $$;
+
+create or replace function student_challenges(p_token uuid) returns json
+language plpgsql stable security definer set search_path = public, extensions as $$
+declare s students; today date := seoul_today();
+begin
+  s := session_student(p_token);
+  return coalesce((select json_agg(json_build_object('id', c.id, 'title', c.title, 'scope', c.scope, 'metric', c.metric, 'goal', c.goal, 'xp', c.xp,
+      'starts_on', c.starts_on, 'ends_on', c.ends_on, 'progress', case when c.starts_on <= today then challenge_progress(c, s) else 0 end,
+      'done', (select json_build_object('at', d.done_at, 'xp', d.xp) from challenge_done d where d.challenge_id = c.id and d.student_id = s.id),
+      'class_done', case when c.scope = 'class' then (select count(*) from challenge_done d join students m on m.id = d.student_id where d.challenge_id = c.id and m.grade = s.grade and m.class = s.class) end)
+    order by (c.ends_on < today), c.ends_on, c.created_at)
+    from challenges c where challenge_fits(c, s) and c.ends_on >= today - 7 and c.starts_on <= today + 7), '[]');
+end $$;
+
+-- 목표를 채우면 보상 받기 (한 번만). 기간이 끝나고 3일 안까지 받을 수 있어요
+create or replace function student_challenge_claim(p_token uuid, p_id uuid) returns json
+language plpgsql security definer set search_path = public, extensions as $$
+declare s students; c challenges; today date := seoul_today(); n int;
+begin
+  s := session_student(p_token);
+  select * into c from challenges where id = p_id;
+  if not found or not challenge_fits(c, s) then return json_build_object('error', 'not_found'); end if;
+  if today < c.starts_on then return json_build_object('error', 'not_open'); end if;
+  if today > c.ends_on + 3 then return json_build_object('error', 'closed'); end if;
+  if challenge_progress(c, s) < c.goal then return json_build_object('error', 'not_enough'); end if;
+  insert into challenge_done (challenge_id, student_id, xp) values (c.id, s.id, c.xp) on conflict do nothing;
+  get diagnostics n = row_count;
+  if n = 0 then return json_build_object('error', 'already'); end if;
+  perform give_xp(s.id, c.xp, case when c.scope = 'class' then '우리 반 공동목표 달성' else '도전 달성' end, 'challenge:' || c.id);
+  return json_build_object('ok', true, 'xp', c.xp, 'total_xp', (select xp from students where id = s.id));
+end $$;
+
+-- ---------- 선생님: 자유운동 ----------
+create or replace function admin_free_list(p_status text, p_grade int, p_class int) returns json
+language plpgsql stable security definer set search_path = public, extensions as $$
+begin
+  perform need_staff();
+  return json_build_object(
+    'review', (select count(*) from workouts where status = 'REVIEW'),
+    'rows', coalesce((select json_agg(x) from (
+      select w.id, w.kind, w.day, w.started_at, w.ended_at, w.active_secs, w.steps, w.minute_steps, w.screen_off_secs, w.status, w.flags, w.xp,
+             s.grade, s.class, s.num, s.name, s.student_no
+      from workouts w join students s on s.id = w.student_id
+      where (p_status is null or w.status = p_status) and (p_grade is null or s.grade = p_grade) and (p_class is null or s.class = p_class)
+      order by w.started_at desc limit 300) x), '[]'));
+end $$;
+
+-- 검토 중 기록: 인정하면 그날 한도 안에서 XP를 주고, 반려하면 기록만 남아요
+create or replace function admin_free_review(p_id uuid, p_ok boolean) returns json
+language plpgsql security definer set search_path = public, extensions as $$
+declare w workouts; v_xp int := 0;
+begin
+  perform need_staff();
+  select * into w from workouts where id = p_id for update;
+  if not found or w.status <> 'REVIEW' then return json_build_object('error', 'not_review'); end if;
+  if p_ok then
+    v_xp := free_xp_for(w.student_id, w.kind, w.day, w.id);
+    update workouts set status = 'APPROVED', xp = v_xp, reviewed_by = auth.uid() where id = w.id;
+    if v_xp > 0 then perform give_xp(w.student_id, v_xp, '자유운동 ' || free_kind_name(w.kind) || ' (선생님 인정)', 'workout:' || w.id, auth.uid()); end if;
+  else
+    update workouts set status = 'REJECTED', reviewed_by = auth.uid() where id = w.id;
+  end if;
+  return json_build_object('ok', true, 'xp', v_xp);
+end $$;
+
+-- 관리교사만: 자유운동 설정
+create or replace function admin_save_free(p jsonb) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if not is_owner() then raise exception 'not_owner'; end if;
+  if coalesce((p ->> 'min_secs')::int, 600) not between 60 and 7200 then raise exception 'bad_value'; end if;
+  if coalesce((p ->> 'daily_count')::int, 2) not between 0 and 20 or coalesce((p ->> 'daily_xp')::int, 40) not between 0 and 1000 then raise exception 'bad_value'; end if;
+  update settings set free_workout = jsonb_build_object(
+    'on', coalesce((p ->> 'on')::boolean, true),
+    'kinds', coalesce(p -> 'kinds', '["walk", "run", "jumprope", "hometrain"]'::jsonb),
+    'basis', case when p ->> 'basis' in ('time', 'steps', 'both') then p ->> 'basis' else 'time' end,
+    'min_secs', coalesce((p ->> 'min_secs')::int, 600), 'min_steps', coalesce((p ->> 'min_steps')::int, 1000),
+    'daily_count', coalesce((p ->> 'daily_count')::int, 2), 'daily_xp', coalesce((p ->> 'daily_xp')::int, 40),
+    'xp', coalesce(p -> 'xp', '{"walk": 20, "run": 20, "jumprope": 20, "hometrain": 20}'::jsonb))
+  where id = 1;
+end $$;
+
+-- ---------- 선생님: 도전 ----------
+create or replace function admin_challenges() returns json
+language plpgsql stable security definer set search_path = public, extensions as $$
+begin
+  perform need_staff();
+  return coalesce((select json_agg(x order by x.ends_on desc, x.created_at desc) from (
+    select c.*, (select count(*) from challenge_done d where d.challenge_id = c.id) as done
+    from challenges c order by c.ends_on desc limit 100) x), '[]');
+end $$;
+
+create or replace function admin_save_challenge(p jsonb) returns uuid
+language plpgsql security definer set search_path = public, extensions as $$
+declare cid uuid;
+begin
+  perform need_staff();
+  if (p ->> 'scope') = 'class' and nullif(p ->> 'target_grade', '') is null then raise exception 'need_grade'; end if;
+  insert into challenges (title, scope, metric, goal, xp, starts_on, ends_on, target_grade, target_class, created_by)
+  values (p ->> 'title', p ->> 'scope', p ->> 'metric', (p ->> 'goal')::int, coalesce((p ->> 'xp')::int, 20),
+          (p ->> 'starts_on')::date, (p ->> 'ends_on')::date, nullif(p ->> 'target_grade', '')::int, nullif(p ->> 'target_class', '')::int, auth.uid())
+  returning id into cid;
+  return cid;
+end $$;
+
+create or replace function admin_delete_challenge(p_id uuid) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  perform need_staff();
+  -- 이미 준 XP는 되돌려요
+  perform give_xp(d.student_id, -d.xp, '도전 삭제', 'challenge:' || d.challenge_id) from challenge_done d where d.challenge_id = p_id and d.xp > 0;
+  delete from challenges where id = p_id;
+end $$;
+
+-- ---------- 선생님: 배지 · 종목 ----------
+create or replace function admin_badges() returns json
+language plpgsql stable security definer set search_path = public, extensions as $$
+begin
+  perform need_staff();
+  return json_build_object(
+    'badges', coalesce((select json_agg(x order by x.sort, x.id) from (select b.*, (select count(*) from student_badges sb where sb.badge_id = b.id) as earned from badges b) x), '[]'),
+    'sports', coalesce((select json_agg(x order by x.sort, x.id) from (select sp.*,
+        (select count(*) from programs p where p.sport_id = sp.id) as programs from sports sp) x), '[]'));
+end $$;
+
+create or replace function admin_save_badge(p jsonb) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  perform need_staff();
+  if (p ->> 'id') is null then
+    insert into badges (code, name, icon, kind, goal, sort)
+    values ('b' || substr(md5(random()::text), 1, 10), p ->> 'name', coalesce(nullif(p ->> 'icon', ''), '🏅'), p ->> 'kind', (p ->> 'goal')::int,
+            coalesce((select max(sort) from badges), 0) + 1);
+  else
+    update badges set name = coalesce(p ->> 'name', name), icon = coalesce(nullif(p ->> 'icon', ''), icon), goal = coalesce((p ->> 'goal')::int, goal),
+      active = coalesce((p ->> 'active')::boolean, active)
+    where id = (p ->> 'id')::int;
+  end if;
+end $$;
+
+create or replace function admin_save_sport(p jsonb) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  perform need_staff();
+  if (p ->> 'id') is null then
+    insert into sports (name, icon, sort) values (p ->> 'name', coalesce(nullif(p ->> 'icon', ''), '🏅'), coalesce((select max(sort) from sports), 0) + 1);
+  else
+    update sports set name = coalesce(p ->> 'name', name), icon = coalesce(nullif(p ->> 'icon', ''), icon), active = coalesce((p ->> 'active')::boolean, active)
+    where id = (p ->> 'id')::int;
+  end if;
+end $$;
+
+create or replace function admin_set_program_sport(p_program int, p_sport int) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin perform need_staff(); update programs set sport_id = p_sport where id = p_program; end $$;
+create or replace function admin_set_session_sport(p_session uuid, p_sport int) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin perform need_staff(); update qr_sessions set sport_id = p_sport where id = p_session; end $$;
+
 -- ---------- 함수 실행 권한 ----------
 -- 학생은 로그인 없이(anon) student_* 와 race_board 만, 선생님(authenticated)은 admin_* 도 (안에서 다시 확인해요)
 revoke execute on all functions in schema public from public, anon, authenticated;
@@ -896,3 +1434,9 @@ grant execute on function admin_open_session(int, int), admin_close_session(uuid
   admin_mission_subs(uuid, int, int), admin_dashboard(), admin_settings(), admin_save_settings(jsonb),
   admin_set_teacher(uuid, text), admin_save_program(jsonb), admin_import_staff(jsonb), admin_staff_board(),
   admin_paps_save(jsonb), admin_paps_class(int, int) to authenticated;
+grant execute on function student_progress(uuid), student_calendar(uuid, date), student_report(uuid, date), student_free_state(uuid),
+  student_free_start(uuid, text), student_free_cancel(uuid, uuid), student_free_finish(uuid, uuid, int, jsonb, int), student_free_rank(uuid),
+  student_challenges(uuid), student_challenge_claim(uuid, uuid) to anon, authenticated;
+grant execute on function admin_free_list(text, int, int), admin_free_review(uuid, boolean), admin_save_free(jsonb), admin_challenges(),
+  admin_save_challenge(jsonb), admin_delete_challenge(uuid), admin_badges(), admin_save_badge(jsonb), admin_save_sport(jsonb),
+  admin_set_program_sport(int, int), admin_set_session_sport(uuid, int) to authenticated;
