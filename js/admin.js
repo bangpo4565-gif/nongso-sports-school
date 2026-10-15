@@ -105,9 +105,9 @@ function aSessions() {
       ${rows.map(s => `<tr><td class="num">${fmtDay(s.day)}</td><td class="num">${fmtTime(s.opened_at)}</td><td>${esc(s.program)}</td><td>${tgt(s.target_grade)}</td><td class="r num">${s.done}</td><td class="r num">${s.active}</td>
         <td>${s.closed_at ? '<span class="state st-WAITING">닫힘</span>' : '<span class="state st-ACTIVE">열림</span>'}</td>
         <td class="r" style="white-space:nowrap"><button class="btn sm ghost" data-act="golive" data-v="${s.id}">실시간</button>
-        ${s.closed_at ? (s.day === seoulDate() ? `<button class="btn sm ghost" data-act="sreopen" data-v="${s.id}">다시 열기</button>` : "") : `<button class="btn sm ghost" data-act="goqr" data-v="${s.id}">QR</button> <button class="btn sm" data-act="sclose" data-v="${s.id}">닫기</button>`}</td></tr>`).join("")}
+        ${s.closed_at ? (s.day === seoulDate() ? `<button class="btn sm ghost" data-act="sreopen" data-v="${s.id}">다시 열기</button> ` : "") + `<button class="btn sm ghost" data-act="sdel" data-v="${s.id}" data-n="${esc(s.program)}">지우기</button>` : `<button class="btn sm ghost" data-act="goqr" data-v="${s.id}">QR</button> <button class="btn sm" data-act="sclose" data-v="${s.id}">닫기</button>`}</td></tr>`).join("")}
       </tbody></table>`}</div>
-    <p class="small muted">선생님은 대상을 몇 학년으로 골라도 함께 출석할 수 있어요. 닫으면 아직 운동 완료 QR을 찍지 않은 학생은 미완료가 돼요. 오늘 연 세션은 다시 열 수 있어요.</p>`;
+    <p class="small muted">선생님은 대상을 몇 학년으로 골라도 함께 출석할 수 있어요. 닫으면 아직 운동 완료 QR을 찍지 않은 학생은 미완료가 돼요. 오늘 연 세션은 다시 열 수 있어요. 체험·연습으로 연 출석은 닫은 뒤 지우기를 누르면 기록과 XP가 함께 지워져요.</p>`;
 }
 const seoulDate = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 
@@ -653,6 +653,8 @@ document.addEventListener("click", async e => {
         if (S.page === "qr") return go("sessions");
         if (S.page === "live") await loadLive(); render(); }); break;
     case "sreopen": await busy(async () => { await call("admin_reopen_session", { p_session: v }); S.sessions = await call("admin_sessions", { p_days: 14 }); if (S.page === "live") await loadLive(); render(); }, "다시 열었어요"); break;
+    case "sdel": if (!confirm(`${b.dataset.n} 출석 기록을 지울까요? 이 출석으로 받은 XP도 되돌려지고, 되살릴 수 없어요.`)) break;
+      await busy(async () => { await call("admin_delete_session", { p_session: v }); if (S.sid === v) S.sid = null; S.sessions = await call("admin_sessions", { p_days: 14 }); render(); }, "지웠어요"); break;
     case "golive": S.sid = v; S.live = null; S.liveClass = ""; S.liveClasses = null; go("live"); break;
     case "goqr": S.sid = v; go("qr"); break;
     case "manual": await busy(async () => { await call("admin_manual", { p_session: S.sid, p_student: v }); await loadLive(); render(); }, "직접 인정했어요"); break;

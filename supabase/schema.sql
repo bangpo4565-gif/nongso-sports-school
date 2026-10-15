@@ -534,6 +534,15 @@ begin
   return json_build_object('ok', true, 'state', 'COMPLETED', 'xp', p.xp, 'secs', round(elapsed), 'total_xp', (select xp from students where id = s.id));
 end $$;
 
+-- 출석 세션 지우기 (체험·연습용). 그 세션에서 준 XP도 되돌려요
+create or replace function admin_delete_session(p_session uuid) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  perform need_staff();
+  perform give_xp(a.student_id, -a.xp, '출석 기록 지우기', 'att-del:' || a.id) from attendance a where a.session_id = p_session and a.xp > 0;
+  delete from qr_sessions where id = p_session;
+end $$;
+
 -- 선생님이 직접 인정 (MANUAL)
 create or replace function admin_manual(p_session uuid, p_student uuid) returns void
 language plpgsql security definer set search_path = public, extensions as $$
@@ -1451,6 +1460,7 @@ grant execute on function admin_open_session(int, int), admin_close_session(uuid
 grant execute on function student_progress(uuid), student_calendar(uuid, date), student_report(uuid, date), student_free_state(uuid),
   student_free_start(uuid, text), student_free_cancel(uuid, uuid), student_free_finish(uuid, uuid, int, jsonb, int), student_free_rank(uuid),
   student_challenges(uuid), student_challenge_claim(uuid, uuid) to anon, authenticated;
+grant execute on function admin_delete_session(uuid) to authenticated;
 grant execute on function admin_free_list(text, int, int), admin_free_review(uuid, boolean), admin_save_free(jsonb), admin_challenges(),
   admin_save_challenge(jsonb), admin_delete_challenge(uuid), admin_badges(), admin_save_badge(jsonb), admin_save_sport(jsonb),
   admin_set_program_sport(int, int), admin_set_session_sport(uuid, int) to authenticated;
