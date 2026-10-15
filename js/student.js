@@ -273,9 +273,10 @@ function vSub() {
   if (k === "install") {
     const ia = inAppBrowser();
     return `<div class="stack">${subHead("더보기", "휴대폰에 설치")}
-      ${ia ? `<div class="card stack" style="gap:10px;outline:1.5px solid var(--court)"><b>지금은 ${ia} 안에서 열려 있어요</b><p class="small muted" style="margin:0">${ia} 안에서는 홈 화면에 추가할 수 없어요. ${/iPhone|iPad/.test(navigator.userAgent) ? "사파리" : "크롬"}으로 연 다음 아래 방법대로 설치해 주세요.</p>
+      ${ia ? `<div class="card stack" style="gap:10px;outline:1.5px solid var(--court)"><b>지금은 ${ia} 안에서 열려 있어요</b><p class="small muted" style="margin:0">${ia} 안에서는 홈 화면에 추가할 수 없어요. ${/iPhone|iPad/.test(navigator.userAgent) ? "사파리" : "크롬이나 삼성 인터넷"}으로 연 다음 아래 방법대로 설치해 주세요.</p>
         ${externalUrl(ia) ? `<a class="btn" href="${esc(externalUrl(ia))}">${/iPhone|iPad/.test(navigator.userAgent) ? "사파리" : "크롬"}으로 열기</a>` : ""}<p class="small muted" style="margin:0">버튼이 안 되면 화면의 ⋮ 또는 ··· 메뉴에서 <b>다른 브라우저로 열기</b>를 눌러요.</p></div>` : ""}
-      <div class="card stack" style="gap:10px"><b>안드로이드 (크롬)</b><p class="small muted" style="margin:0">오른쪽 위 ⋮ 메뉴 → <b>홈 화면에 추가</b> 또는 <b>앱 설치</b>를 눌러요.</p>
+      <div class="card stack" style="gap:10px"><b>갤럭시 (삼성 인터넷)</b><p class="small muted" style="margin:0">주소창 오른쪽의 <b>⬇ 아이콘</b>을 누르고 <b>설치</b>를 눌러요. 아이콘이 없으면 아래 ≡ 메뉴 → <b>현재 페이지 추가</b> → <b>홈 화면</b>을 눌러요.</p></div>
+      <div class="card stack" style="gap:10px"><b>안드로이드 (크롬)</b><p class="small muted" style="margin:0">오른쪽 위 ⋮ 메뉴 → <b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 눌러요.</p>
       ${window.__installEvt ? '<button class="btn" data-act="install">지금 설치하기</button>' : ""}</div>
       <div class="card stack" style="gap:10px"><b>아이폰 (사파리)</b><p class="small muted" style="margin:0">아래 가운데 공유 버튼(□↑) → <b>홈 화면에 추가</b>를 눌러요. 사파리에서만 돼요.</p></div>
       <p class="small muted" style="margin:0">설치하면 바탕화면에 농소스포츠 아이콘이 생기고, 누르면 앱처럼 전체 화면으로 열려요.</p></div>`;

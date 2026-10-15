@@ -357,3 +357,5 @@ button.card{border:0;color:inherit}
 textarea:focus-visible{outline:2px solid var(--court);outline-offset:2px}
 .pin{background:var(--panel);border:1.5px solid var(--line);color:var(--fg);border-radius:8px;padding:6px 8px;font:600 14px var(--display)}
 a.btn{text-decoration:none}
+/* 삼성 인터넷·크롬 다크 모드가 밝은 화면을 억지로 어둡게 바꾸지 않게: 다크 모드에서도 같은 밝은 색을 쓴다고 알려요 */
+@media (prefers-color-scheme: dark){:root{color-scheme:only light}html,body{background:var(--ink);color:var(--fg)}}
