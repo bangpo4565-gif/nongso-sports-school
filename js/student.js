@@ -237,6 +237,17 @@ function vRank() {
     ${body}</div>`;
 }
 
+/* 카카오톡·네이버·인스타그램 같은 앱 안 브라우저에서는 설치가 안 돼서 알려 줘요 */
+function inAppBrowser() {
+  const u = navigator.userAgent;
+  return /KAKAOTALK/i.test(u) ? "카카오톡" : /NAVER\(inapp/i.test(u) ? "네이버 앱" : /Instagram/i.test(u) ? "인스타그램" : /FBAN|FBAV/i.test(u) ? "페이스북" : /\bLine\//i.test(u) ? "라인" : /; wv\)/.test(u) ? "앱" : "";
+}
+function externalUrl(ia) {
+  const here = location.origin + "/";
+  if (ia === "카카오톡") return "kakaotalk://web/openExternal?url=" + encodeURIComponent(here);
+  if (/Android/i.test(navigator.userAgent)) return `intent://${location.host}/#Intent;scheme=https;package=com.android.chrome;end`;
+  return "";
+}
 /* ---------- MORE ---------- */
 function subHead(eb, title) { return `${topline()}<button class="back" data-act="sub" data-v="">${IC.back} 더보기</button><div class="pagehead"><span class="eyebrow">${eb}</span><h2>${title}</h2></div>`; }
 function vMore() {
@@ -260,7 +271,10 @@ function vSub() {
       <p class="small muted" style="margin:0">미완료는 운동 완료 QR을 찍기 전에 운동 시간이 끝난 기록이에요. 선생님 인정은 선생님이 직접 인정한 기록이에요.</p>`}</div>`;
   }
   if (k === "install") {
+    const ia = inAppBrowser();
     return `<div class="stack">${subHead("더보기", "휴대폰에 설치")}
+      ${ia ? `<div class="card stack" style="gap:10px;outline:1.5px solid var(--court)"><b>지금은 ${ia} 안에서 열려 있어요</b><p class="small muted" style="margin:0">${ia} 안에서는 홈 화면에 추가할 수 없어요. ${/iPhone|iPad/.test(navigator.userAgent) ? "사파리" : "크롬"}으로 연 다음 아래 방법대로 설치해 주세요.</p>
+        ${externalUrl(ia) ? `<a class="btn" href="${esc(externalUrl(ia))}">${/iPhone|iPad/.test(navigator.userAgent) ? "사파리" : "크롬"}으로 열기</a>` : ""}<p class="small muted" style="margin:0">버튼이 안 되면 화면의 ⋮ 또는 ··· 메뉴에서 <b>다른 브라우저로 열기</b>를 눌러요.</p></div>` : ""}
       <div class="card stack" style="gap:10px"><b>안드로이드 (크롬)</b><p class="small muted" style="margin:0">오른쪽 위 ⋮ 메뉴 → <b>홈 화면에 추가</b> 또는 <b>앱 설치</b>를 눌러요.</p>
       ${window.__installEvt ? '<button class="btn" data-act="install">지금 설치하기</button>' : ""}</div>
       <div class="card stack" style="gap:10px"><b>아이폰 (사파리)</b><p class="small muted" style="margin:0">아래 가운데 공유 버튼(□↑) → <b>홈 화면에 추가</b>를 눌러요. 사파리에서만 돼요.</p></div>

@@ -356,3 +356,4 @@ button.card{border:0;color:inherit}
 .main select{color:var(--fg)}
 textarea:focus-visible{outline:2px solid var(--court);outline-offset:2px}
 .pin{background:var(--panel);border:1.5px solid var(--line);color:var(--fg);border-radius:8px;padding:6px 8px;font:600 14px var(--display)}
+a.btn{text-decoration:none}
