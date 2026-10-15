@@ -89,15 +89,16 @@ function vHome() {
     ${act ? `<button class="sess" data-act="tab" data-v="check" style="border-color:var(--data)"><div class="tm num" data-live="homeLeft">${leftOf(act) > 0 ? clock(leftOf(act)) : "OK"}<small>${leftOf(act) > 0 ? "남음" : "완료 가능"}</small></div>
       <div class="meta">${stTag("ACTIVE")}<b style="margin-top:6px">${esc(act.program)} 운동 중</b><span class="small muted">${leftOf(act) > 0 ? "시간이 다 되면 운동 완료 QR을 찍어요" : "이제 운동 완료 QR을 찍어요"}</span></div></button>` : ""}
     ${hero()}
+    <section class="stack"><div class="row between"><h3 class="row" style="font-size:17px;gap:10px">오늘의 미션 ${om.length ? BELL(om.length) : ""}</h3><button class="back" data-act="sub" data-v="mission">전체 보기 ›</button></div>
+      ${om.length ? om.slice(0, 3).map(m => `<button class="sess" data-act="mstart" data-v="${m.id}"><div class="tm num">${m.goal >= 1000 ? (m.goal / 1000) + "k" : m.goal}<small>${MKIND[m.kind].unit}</small></div>
+        <div class="meta"><b>${mTitle(m)}</b><span class="small muted">${HOWLAB[MKIND[m.kind].how]} · ${fmtDT(m.closes_at)}까지 · +${m.xp} XP</span></div><span class="chip">시작 ›</span></button>`).join("")
+        : `<div class="card small muted">${(h.missions || []).some(m => m.done && new Date(m.done.at).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" }) === new Date(serverNow()).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" })) ? "오늘 미션을 모두 끝냈어요! 잘했어요." : "아직 오늘의 미션이 없어요. 선생님이 미션을 내면 여기에 바로 떠요."}</div>`}</section>
     <button class="gcard ghome" data-act="guide"><span class="gico" aria-hidden="true">🏃</span><span class="gtx"><b>농소스포츠스쿨 주요 기능</b><span>여기서 할 수 있는 것을 한눈에 봐요</span></span><span class="back">보기 ›</span></button>
     <section class="stack"><div class="row between"><h3 style="font-size:17px">오늘 열린 운동</h3>${h.open.length ? '<span class="open">● 지금 열림</span>' : ""}</div>
       ${h.open.length ? h.open.map(o => `<button class="sess" data-act="pick" data-v="${o.id}"><div class="tm num">${o.min_seconds >= 60 ? Math.round(o.min_seconds / 60) : o.min_seconds}<small>${o.min_seconds >= 60 ? "분" : "초"}</small></div>
         <div class="meta"><b>${esc(o.program)}</b><span class="small muted">최소 ${mmss(o.min_seconds)} · +${o.xp} XP${o.geo ? " · 위치 인증" : ""}</span></div>
         ${o.mine ? stTag(o.mine.state) : '<span class="chip">인증하기 ›</span>'}</button>`).join("")
         : '<div class="card small muted">지금 열린 출석이 없어요. 선생님이 TV에 QR을 띄우면 여기에 떠요.</div>'}</section>
-    ${om.length ? `<section class="stack"><div class="row between"><h3 class="row" style="font-size:17px;gap:10px">오늘의 미션 ${BELL(om.length)}</h3><button class="back" data-act="sub" data-v="mission">전체 보기 ›</button></div>
-      ${om.slice(0, 2).map(m => `<button class="sess" data-act="mstart" data-v="${m.id}"><div class="tm num">${m.goal >= 1000 ? (m.goal / 1000) + "k" : m.goal}<small>${MKIND[m.kind].unit}</small></div>
-        <div class="meta"><b>${mTitle(m)}</b><span class="small muted">${HOWLAB[MKIND[m.kind].how]} · ${fmtDT(m.closes_at)}까지 · +${m.xp} XP</span></div><span class="chip">시작 ›</span></button>`).join("")}</section>` : ""}
     ${homeFree()}
     ${homeChal()}
     ${race}
