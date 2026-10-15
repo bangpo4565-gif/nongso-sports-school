@@ -646,3 +646,6 @@ document.addEventListener("click", async e => {
 
 if (sb) sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") { S.view = "auth"; render(); } });
 enter();
+
+// 선생님 화면도 홈 화면에 설치할 수 있게 해요
+if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
