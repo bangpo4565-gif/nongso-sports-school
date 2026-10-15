@@ -1,5 +1,5 @@
 // 선생님 화면. 로그인은 Supabase 계정(이메일), 기록은 모두 admin_* 서버 함수로만 바꿔요.
-import { SUPABASE_URL, SUPABASE_KEY, configured, esc, mmss, clock, levelOf, fmtDay, fmtTime, fmtDT, toast,
+import { SUPABASE_URL, SUPABASE_KEY, configured, esc, mmss, clock, levelOf, fmtDay, fmtTime, fmtDT, toast, stTag,
   raceHTML, racePeriod, MKIND, HOWLAB, mTitle, PAPS_REC, PAPS_USE, papsKey, papsGradeNum, PAPS } from "./common.js";
 
 const $app = document.getElementById("app");
@@ -31,7 +31,7 @@ const studentUrl = () => new URL("./", location.href).href;
 /* ---------- 로그인 ---------- */
 function vAuth() {
   const up = S.authTab === "signup";
-  return `<div class="login"><div class="loginphoto" style="background-image:url(img/splash.jpg)"><div>TEACHER<br>CONSOLE</div></div>
+  return `<div class="login"><div class="loginphoto" style="background-image:url(img/splash.jpg)"><div>선생님<br>관리 화면</div></div>
     ${!configured() ? `<div class="msg bad">js/config.js 에 Supabase 주소와 공개 키가 아직 없어요.</div>` : ""}
     <div class="seg"><button data-act="authtab" data-v="login" class="${up ? "" : "on"}">로그인</button><button data-act="authtab" data-v="signup" class="${up ? "on" : ""}">선생님 가입</button></div>
     ${S.msg ? `<div class="msg ${S.msg.k}" role="alert">${esc(S.msg.t)}</div>` : ""}
@@ -44,20 +44,20 @@ function vAuth() {
     </form><a class="back" href="${studentUrl()}">학생 앱으로 가기 ›</a></div>`;
 }
 function vPending() {
-  return `<div class="phone"><div class="stack" style="margin-top:40px"><div class="pagehead"><span class="eyebrow">WAITING</span><h2>승인을 기다리고 있어요</h2></div>
+  return `<div class="phone"><div class="stack" style="margin-top:40px"><div class="pagehead"><span class="eyebrow">가입 신청 완료</span><h2>승인을 기다리고 있어요</h2></div>
     <div class="card">관리교사가 설정 화면에서 승인하면 바로 쓸 수 있어요. 승인된 뒤 아래 버튼을 눌러 주세요.</div>
     <button class="btn" data-act="recheck">승인됐는지 다시 확인</button><button class="btn ghost" data-act="logout">로그아웃</button></div></div>`;
 }
 
 /* ---------- 화면 틀 ---------- */
-const MENU = [["dash", "DASHBOARD"], ["sessions", "QR 출석 열기"], ["live", "LIVE 출석"], ["qr", "QR 화면 (TV)"], ["race", "학급 레이스 (TV)"],
+const MENU = [["dash", "대시보드"], ["sessions", "QR 출석 열기"], ["live", "실시간 출석"], ["qr", "QR 화면 (TV)"], ["race", "학급 레이스 (TV)"],
   ["mission", "미션"], ["students", "학생 · 명단"], ["paps", "POPS 기록"], ["staff", "선생님 참여"], ["programs", "운동 프로그램"], ["settings", "설정"]];
 function vAdmin() {
   const p = S.page;
   const body = p === "dash" ? aDash() : p === "sessions" ? aSessions() : p === "live" ? aLive() : p === "qr" ? aQr() : p === "race" ? aRace()
     : p === "mission" ? aMission() : p === "students" ? aStudents() : p === "paps" ? aPaps() : p === "staff" ? aStaff() : p === "programs" ? aPrograms() : aSettings();
   const pend = S.dash?.pending_teachers || 0;
-  return `<div class="admin ${S.tv ? "tv" : ""}"><aside class="side"><div class="brand">NONGSO <em>ADMIN</em></div><div class="grp">${esc(S.me?.name || S.me?.email || "")}</div>
+  return `<div class="admin ${S.tv ? "tv" : ""}"><aside class="side"><div class="brand">농소<em>스포츠스쿨</em></div><div class="grp">${esc(S.me?.name || S.me?.email || "")}</div>
     ${MENU.map(([k, t]) => `<button data-act="page" data-v="${k}" class="${p === k ? "on" : ""}">${t}${k === "settings" && pend && isOwner() ? `<small>승인 ${pend}</small>` : ""}</button>`).join("")}
     <div class="grp">바로가기</div><button data-act="openapp">학생 앱 열기</button><button data-act="logout">로그아웃</button>
     </aside><main class="main">${body}</main></div>`;
@@ -68,13 +68,13 @@ const loading = `<div class="card muted">불러오는 중이에요…</div>`;
 /* ---------- DASHBOARD ---------- */
 function aDash() {
   const d = S.dash;
-  if (!d) return head(today(), "DASHBOARD") + loading;
+  if (!d) return head(today(), "대시보드") + loading;
   const open = (S.sessions || []).filter(s => !s.closed_at);
   const days = d.week || [], max = Math.max(1, ...days.map(x => x.done));
-  return head(today(), "DASHBOARD", `<button class="btn sm" data-act="page" data-v="sessions">QR 출석 열기</button>`) +
+  return head(today(), "대시보드", `<button class="btn sm" data-act="page" data-v="sessions">QR 출석 열기</button>`) +
     `<div class="kpis"><div class="kpi"><span>지금 열린 세션</span><b class="num">${d.open_sessions}</b><span>${open.map(s => esc(s.program)).join(" · ") || "없음"}</span></div>
-      <div class="kpi"><span>오늘 완료</span><b class="num" style="color:var(--good)">${d.today_done}</b><span>COMPLETED + MANUAL</span></div>
-      <div class="kpi"><span>지금 활동 중</span><b class="num" style="color:var(--data)">${d.today_active}</b><span>CHECK-OUT 전</span></div>
+      <div class="kpi"><span>오늘 완료</span><b class="num" style="color:var(--good)">${d.today_done}</b><span>완료 + 선생님 인정</span></div>
+      <div class="kpi"><span>지금 운동 중</span><b class="num" style="color:var(--data)">${d.today_active}</b><span>완료 QR 전</span></div>
       <div class="kpi"><span>가입한 학생</span><b class="num">${d.joined}<small style="font-size:16px;color:var(--muted)"> / ${d.students}</small></b><span>명단 기준</span></div></div>
     <div class="grid2" style="margin-top:14px"><div class="card"><span class="eyebrow">최근 7일 완료 인원</span>
       ${days.length ? `<div style="margin-top:10px">${days.map(x => `<div class="hbar"><span class="num">${fmtDay(x.day)}</span><div class="bar teal"><i style="width:${x.done / max * 100}%"></i></div><span class="num" style="text-align:right">${x.done}</span></div>`).join("")}</div>` : '<p class="muted small">아직 기록이 없어요.</p>'}</div>
@@ -99,10 +99,10 @@ function aSessions() {
       `<table class="tbl"><thead><tr><th>날짜</th><th>열린 시각</th><th>프로그램</th><th>대상</th><th class="r">완료</th><th class="r">활동 중</th><th>상태</th><th class="r"></th></tr></thead><tbody>
       ${rows.map(s => `<tr><td class="num">${fmtDay(s.day)}</td><td class="num">${fmtTime(s.opened_at)}</td><td>${esc(s.program)}</td><td>${tgt(s.target_grade)}</td><td class="r num">${s.done}</td><td class="r num">${s.active}</td>
         <td>${s.closed_at ? '<span class="state st-WAITING">닫힘</span>' : '<span class="state st-ACTIVE">열림</span>'}</td>
-        <td class="r" style="white-space:nowrap"><button class="btn sm ghost" data-act="golive" data-v="${s.id}">LIVE</button>
+        <td class="r" style="white-space:nowrap"><button class="btn sm ghost" data-act="golive" data-v="${s.id}">실시간</button>
         ${s.closed_at ? (s.day === seoulDate() ? `<button class="btn sm ghost" data-act="sreopen" data-v="${s.id}">다시 열기</button>` : "") : `<button class="btn sm ghost" data-act="goqr" data-v="${s.id}">QR</button> <button class="btn sm" data-act="sclose" data-v="${s.id}">닫기</button>`}</td></tr>`).join("")}
       </tbody></table>`}</div>
-    <p class="small muted">닫으면 아직 CHECK-OUT 하지 않은 학생은 FAILED가 돼요. 오늘 연 세션은 다시 열 수 있어요.</p>`;
+    <p class="small muted">닫으면 아직 운동 완료 QR을 찍지 않은 학생은 미완료가 돼요. 오늘 연 세션은 다시 열 수 있어요.</p>`;
 }
 const seoulDate = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 
@@ -113,23 +113,23 @@ function sessionPicker() {
   return `<div class="field" style="min-width:220px"><label for="lsid">세션</label><select id="lsid">${list.map(s => `<option value="${s.id}" ${s.id === S.sid ? "selected" : ""}>${fmtDay(s.day)} ${fmtTime(s.opened_at)} ${esc(s.program)} · ${tgt(s.target_grade)}${s.closed_at ? " (닫힘)" : ""}</option>`).join("")}</select></div>`;
 }
 function aLive() {
-  if (!S.sid) return head("열린 출석이 있어야 볼 수 있어요", "LIVE 출석") + `<div class="card">지금 열린 출석이 없어요. <button class="btn sm" data-act="page" data-v="sessions" style="width:auto;margin-left:8px">QR 출석 열기</button></div>`;
+  if (!S.sid) return head("열린 출석이 있어야 볼 수 있어요", "실시간 출석") + `<div class="card">지금 열린 출석이 없어요. <button class="btn sm" data-act="page" data-v="sessions" style="width:auto;margin-left:8px">QR 출석 열기</button></div>`;
   const L = S.live;
-  if (!L) return head("", "LIVE 출석") + loading;
+  if (!L) return head("", "실시간 출석") + loading;
   const s = L.session, rows = L.rows, c = k => rows.filter(x => x.state === k).length, now = new Date(L.now).getTime();
   const classes = [...new Set(rows.map(r => r.grade + "-" + r.class))];
-  return head(`${esc(s.program)} · 최소 ${mmss(s.min_seconds)} · ${tgt(s.target_grade)}`, "LIVE 출석",
+  return head(`${esc(s.program)} · 최소 ${mmss(s.min_seconds)} · ${tgt(s.target_grade)}`, "실시간 출석",
       s.closed_at ? `<span class="chip">세션 닫힘</span><button class="btn sm teal" data-act="sreopen" data-v="${s.id}">다시 열기</button>`
         : `<button class="btn sm ghost" data-act="goqr" data-v="${s.id}">QR 화면 띄우기</button><button class="btn sm" data-act="sclose" data-v="${s.id}">세션 닫기</button>`) +
     `<div class="row" style="gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end">${sessionPicker()}
       <div class="field" style="min-width:140px"><label for="lcls">반</label><select id="lcls"><option value="">전체</option>${(S.liveClasses || classes).map(k => `<option value="${k}" ${k === S.liveClass ? "selected" : ""}>${k === "0-0" ? "선생님" : k.replace("-", "학년 ") + "반"}</option>`).join("")}</select></div></div>
-    <div class="livehead">${["WAITING", "ACTIVE", "COMPLETED", "FAILED", "MANUAL"].map(k => `<div class="count"><span class="state st-${k}">${k}</span><b class="num">${c(k)}</b></div>`).join("")}</div>
-    <div class="card scroll" style="padding:6px 10px"><table class="tbl"><thead><tr><th>학급</th><th>번호</th><th>이름</th><th>상태</th><th class="r">CHECK-IN</th><th class="r">경과</th><th class="r">처리</th></tr></thead><tbody>
+    <div class="livehead">${["WAITING", "ACTIVE", "COMPLETED", "FAILED", "MANUAL"].map(k => `<div class="count">${stTag(k)}<b class="num">${c(k)}</b></div>`).join("")}</div>
+    <div class="card scroll" style="padding:6px 10px"><table class="tbl"><thead><tr><th>학급</th><th>번호</th><th>이름</th><th>상태</th><th class="r">시작 시각</th><th class="r">경과</th><th class="r">처리</th></tr></thead><tbody>
     ${rows.map(r => { const el = r.state === "ACTIVE" && r.in_at ? (now - new Date(r.in_at).getTime()) / 1000 : null;
-      return `<tr><td class="num">${r.grade ? r.grade + "-" + r.class : "선생님"}</td><td class="num">${r.num}</td><td>${esc(r.name)}</td><td><span class="state st-${r.state}">${r.state}</span></td>
+      return `<tr><td class="num">${r.grade ? r.grade + "-" + r.class : "선생님"}</td><td class="num">${r.num}</td><td>${esc(r.name)}</td><td>${stTag(r.state)}</td>
         <td class="r num muted">${r.in_at ? fmtTime(r.in_at) : "–"}</td><td class="r num">${el != null ? (el >= s.min_seconds ? `<span style="color:var(--good)">${clock(el)}</span>` : clock(el)) : "–"}</td>
         <td class="r">${r.state === "COMPLETED" || r.state === "MANUAL" ? "" : `<button class="btn sm ghost" data-act="manual" data-v="${r.id}">직접 인정</button>`}</td></tr>`; }).join("")}
-    </tbody></table></div><p class="small muted">5초마다 새로 고쳐요. 휴대폰이 없는 학생은 직접 인정을 누르면 MANUAL로 XP가 들어가요.</p>`;
+    </tbody></table></div><p class="small muted">5초마다 새로 고쳐요. 휴대폰이 없는 학생은 직접 인정을 누르면 선생님 인정으로 XP가 들어가요.</p>`;
 }
 
 /* ---------- QR (TV) ---------- */
@@ -138,13 +138,13 @@ function aQr() {
   const ses = (S.sessions || []).find(x => x.id === S.sid), inMode = S.qrMode === "in", q = S.qr;
   const L = S.live?.rows || [], c = k => L.filter(x => x.state === k).length;
   return `${S.tv ? "" : head(`${esc(ses?.program || "")} · ${tgt(ses?.target_grade)} · TV에 전체화면으로 띄우는 화면`, "QR 화면", `<button class="btn sm" data-act="tv">TV 전체화면</button>`)}
-    <div class="qrstage"><div class="qrbig ${S.qrMode}"><div class="mode" style="color:${inMode ? "var(--good)" : "var(--court)"}">${inMode ? "CHECK-IN" : "CHECK-OUT"}</div>
-      <div class="qrbox" id="qrbox" aria-label="출석 QR 코드">${q && q.err ? `<div style="color:#0d1430;font-weight:700;text-align:center">${esc(q.err)}</div>` : ""}</div>
+    <div class="qrstage"><div class="qrbig ${S.qrMode}"><div class="mode" style="color:${inMode ? "var(--good)" : "var(--court)"}">${inMode ? "운동 시작" : "운동 완료"}</div>
+      <div class="qrbox" id="qrbox" aria-label="출석 QR 코드">${q && q.err ? `<div style="color:#1d2027;font-weight:700;text-align:center">${esc(q.err)}</div>` : ""}</div>
       <div class="qrtimer"><div class="row between small"><span class="muted">다음 QR까지</span><b class="num" data-live="qrleft">${q && !q.err ? Math.ceil(q.leftAt ? (q.leftAt - Date.now()) / 1000 : 0) + "초" : "–"}</b></div><div class="bar ${inMode ? "teal" : ""}" style="margin-top:6px"><i data-live="qrbar" style="width:100%;transition:none"></i></div></div>
-      <div class="small muted" style="text-align:center">${esc(ses?.program || "")}${S.live ? " · 최소 " + mmss(S.live.session.min_seconds) : ""} · 휴대폰 기본 카메라나 학생 앱 CHECK 탭으로 찍어요</div></div>
-    <div class="stack"><div class="toggle"><button data-act="qrmode" data-v="in" class="in ${inMode ? "on" : ""}">CHECK-IN</button><button data-act="qrmode" data-v="out" class="out ${inMode ? "" : "on"}">CHECK-OUT</button></div>
-      <div class="livehead" style="margin:0">${["ACTIVE", "COMPLETED", "MANUAL"].map(k => `<div class="count"><span class="state st-${k}">${k}</span><b class="num" data-live="c${k}">${c(k)}</b></div>`).join("")}</div>
-      ${S.tv ? `<button class="btn ghost sm" data-act="tvoff">전체화면 끝내기</button>` : `<div class="card stack small" style="gap:8px"><b>대리 출석을 막는 방법</b><span class="muted">QR은 ${S.cfg?.settings?.qr_seconds || 30}초마다 바뀌고, 사진으로 찍어 보내도 곧 만료돼요.</span><span class="muted">한 휴대폰으로는 한 학생만 출석할 수 있고, CHECK-OUT은 CHECK-IN 한 휴대폰으로만 돼요.</span><span class="muted">시간은 학교 서버 시계로 재요.</span></div>`}
+      <div class="small muted" style="text-align:center">${esc(ses?.program || "")}${S.live ? " · 최소 " + mmss(S.live.session.min_seconds) : ""} · 휴대폰 기본 카메라나 학생 앱 운동인증 탭으로 찍어요</div></div>
+    <div class="stack"><div class="toggle"><button data-act="qrmode" data-v="in" class="in ${inMode ? "on" : ""}">운동 시작</button><button data-act="qrmode" data-v="out" class="out ${inMode ? "" : "on"}">운동 완료</button></div>
+      <div class="livehead" style="margin:0">${["ACTIVE", "COMPLETED", "MANUAL"].map(k => `<div class="count">${stTag(k)}<b class="num" data-live="c${k}">${c(k)}</b></div>`).join("")}</div>
+      ${S.tv ? `<button class="btn ghost sm" data-act="tvoff">전체화면 끝내기</button>` : `<div class="card stack small" style="gap:8px"><b>대리 출석을 막는 방법</b><span class="muted">QR은 ${S.cfg?.settings?.qr_seconds || 30}초마다 바뀌고, 사진으로 찍어 보내도 곧 만료돼요.</span><span class="muted">한 휴대폰으로는 한 학생만 출석할 수 있고, 완료 QR은 운동을 시작한 휴대폰으로만 찍을 수 있어요.</span><span class="muted">시간은 학교 서버 시계로 재요.</span></div>`}
     </div></div>`;
 }
 let qrTimer = 0, qrKey = "";
@@ -345,7 +345,7 @@ function aPrograms() {
     <td><label class="small"><input type="checkbox" data-f="geo" ${p && p.geo ? "checked" : ""}> 위치 인증</label></td>
     <td>${p ? `<label class="small"><input type="checkbox" data-f="active" ${p.active ? "checked" : ""}> 사용</label>` : ""}</td>
     <td class="r"><button class="btn sm ${p ? "ghost" : ""}" data-act="psave" style="width:auto">${p ? "저장" : "추가"}</button></td></tr>`;
-  return head("CHECK-IN 뒤 최소 시간이 지나야 CHECK-OUT 할 수 있어요", "운동 프로그램") +
+  return head("운동 시작 뒤 최소 시간이 지나야 완료 인증을 할 수 있어요", "운동 프로그램") +
     `<div class="card scroll" style="padding:6px 10px">${!ps ? loading : `<table class="tbl ptbl"><thead><tr><th>프로그램</th><th class="r">최소 시간</th><th class="r">XP</th><th>위치</th><th>사용</th><th></th></tr></thead><tbody>${ps.map(row).join("")}${row(null)}</tbody></table>`}</div>
     <p class="small muted">위치 인증을 켜면 설정에서 정한 기준점 반경 안에서만 출석돼요. 기준점이 비어 있으면 위치는 확인하지 않아요. 최소 시간은 10초(0.17분)부터 돼요.</p>`;
 }
@@ -542,8 +542,8 @@ document.addEventListener("click", async e => {
       const p = +document.getElementById("sprog").value, g = document.getElementById("sgrade").value;
       S.sid = await call("admin_open_session", { p_program: p, p_grade: g ? +g : null }); S.sessions = null; S.qrMode = "in"; go("qr");
     }, "출석을 열었어요. 이 화면을 TV에 띄워 주세요."); break;
-    case "sclose": if (!confirm("이 출석을 닫을까요? 아직 CHECK-OUT 안 한 학생은 FAILED가 돼요.")) break;
-      await busy(async () => { const n = await call("admin_close_session", { p_session: v }); toast(`닫았어요${n ? ` (FAILED ${n}명)` : ""}`); S.sessions = await call("admin_sessions", { p_days: 14 }); if (S.page === "live") await loadLive(); render(); }); break;
+    case "sclose": if (!confirm("이 출석을 닫을까요? 아직 완료 QR을 안 찍은 학생은 미완료가 돼요.")) break;
+      await busy(async () => { const n = await call("admin_close_session", { p_session: v }); toast(`닫았어요${n ? ` (미완료 ${n}명)` : ""}`); S.sessions = await call("admin_sessions", { p_days: 14 }); if (S.page === "live") await loadLive(); render(); }); break;
     case "sreopen": await busy(async () => { await call("admin_reopen_session", { p_session: v }); S.sessions = await call("admin_sessions", { p_days: 14 }); if (S.page === "live") await loadLive(); render(); }, "다시 열었어요"); break;
     case "golive": S.sid = v; S.live = null; S.liveClass = ""; S.liveClasses = null; go("live"); break;
     case "goqr": S.sid = v; go("qr"); break;

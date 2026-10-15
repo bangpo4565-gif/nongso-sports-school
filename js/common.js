@@ -21,6 +21,9 @@ export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;"
 export const mmss = s => { s = Math.max(0, Math.ceil(s)); const m = Math.floor(s / 60); return (m ? m + "분 " : "") + (s % 60) + "초"; };
 export const clock = s => { s = Math.max(0, Math.ceil(s)); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); };
 export function levelOf(xp) { let lv = 1, need = 100, acc = 0; while (xp >= acc + need) { acc += need; lv++; need = 100 + 20 * (lv - 1); } return { lv, into: xp - acc, need }; }
+/* 상태 글자: DB 값은 그대로 두고 화면에만 한국어로 보여요 */
+export const STLAB = { WAITING: "대기", ACTIVE: "운동 중", COMPLETED: "완료", FAILED: "미완료", MANUAL: "선생님 인정" };
+export const stTag = (st, t) => `<span class="state st-${st}">${t || STLAB[st] || st}</span>`;
 export function tierOf(xp) { const t = [["LEGEND", 4000], ["ELITE", 2500], ["GOLD", 1500], ["SILVER", 700], ["BRONZE", 200], ["ROOKIE", 0]]; for (const [n, v] of t) if (xp >= v) return n; return "ROOKIE"; }
 const KST = { timeZone: "Asia/Seoul" };
 export const fmtDay = d => new Date(d).toLocaleDateString("ko-KR", { ...KST, month: "2-digit", day: "2-digit" }).replace(/\s/g, "").replace(/\.$/, "");
@@ -53,11 +56,11 @@ export const ERR = {
   not_target: "이 출석은 다른 학년 대상이에요.",
   need_location: "위치 인증이 필요해요. 위치 권한을 허용하고 다시 찍어 주세요.",
   too_far: "학교 운동장에서 너무 멀어요. 운동하는 곳에서 찍어 주세요.",
-  already_in: "이미 CHECK-IN 했어요. 운동을 마치고 CHECK-OUT QR을 찍어 주세요.",
+  already_in: "이미 운동을 시작했어요. 운동을 마치고 운동 완료 QR을 찍어 주세요.",
   already_done: "오늘 이 프로그램은 이미 끝났어요.",
   device_used: "이 휴대폰으로 이미 다른 학생이 출석했어요. 내 휴대폰으로 찍어 주세요.",
-  not_in: "먼저 CHECK-IN QR을 찍어야 해요.",
-  other_device: "CHECK-IN 했던 휴대폰으로 CHECK-OUT 해 주세요.",
+  not_in: "먼저 운동 시작 QR을 찍어야 해요.",
+  other_device: "운동을 시작한 휴대폰으로 완료 QR을 찍어 주세요.",
   too_early: "아직 활동 인증 시간이 충족되지 않았습니다.",
   not_found: "미션을 찾지 못했어요.",
   not_open: "아직 미션 시간이 아니에요.",
@@ -104,7 +107,7 @@ function snack(){return `<svg class="art" viewBox="0 0 200 140" aria-hidden="tru
   <ellipse cx="100" cy="130" rx="80" ry="7" fill="rgba(0,0,0,.25)"/>
   <path d="M40 22 l60 0 l-4 10 l6 80 l4 10 l-66 0 l4 -10 l6 -80 z" fill="#45d2c6"/>
   <path d="M40 22 h60 l-4 10 h-52z M38 112 h66 l4 10 h-74z" fill="#2aa79c"/>
-  <circle cx="70" cy="68" r="20" fill="#ffd166"/><text x="70" y="74" text-anchor="middle" font-family="Saira Condensed, sans-serif" font-weight="800" font-size="17" fill="#0d1430">CHIP</text>
+  <circle cx="70" cy="68" r="20" fill="#ffd166"/><text x="70" y="74" text-anchor="middle" font-family="Outfit, sans-serif" font-weight="800" font-size="17" fill="#0d1430">CHIP</text>
   <g transform="rotate(-18 150 60)"><rect x="128" y="48" width="44" height="24" rx="12" fill="#ff7a2f"/><path d="M128 60 l-14 -10 v20z M172 60 l14 -10 v20z" fill="#ff9d5c"/><path d="M140 52 v16 M150 52 v16 M160 52 v16" stroke="#ffd2b3" stroke-width="3"/></g>
   <g transform="translate(150 104)"><rect x="-20" y="-12" width="40" height="22" rx="4" fill="#cfd8ea"/><rect x="-20" y="-12" width="40" height="7" rx="3" fill="#8f9cc1"/><circle cx="-8" cy="3" r="3" fill="#7a3e1c"/><circle cx="6" cy="2" r="3" fill="#7a3e1c"/></g>
 </svg>`;}

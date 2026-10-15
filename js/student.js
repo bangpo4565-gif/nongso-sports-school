@@ -1,5 +1,5 @@
 // 학생 앱. 모든 기록은 서버 함수(student_*)로만 주고받아요.
-import { rpc, configured, esc, mmss, clock, levelOf, tierOf, fmtDay, fmtTime, fmtDT, toast, deviceId, store, errText,
+import { rpc, configured, esc, mmss, clock, levelOf, tierOf, fmtDay, fmtTime, fmtDT, toast, deviceId, stTag, store, errText,
   IC, raceHTML, chaseOf, racePeriod, PAPS, papsRange, PAPS_REC, PAPS_USE, papsGradeName, MKIND, HOWLAB, mTitle, BELL } from "./common.js";
 import { createPoseRunner, createWalker, say } from "./motion.js";
 
@@ -39,7 +39,7 @@ function logout(expired) {
 /* ---------- 화면 조각 ---------- */
 function topline() {
   const m = S.home?.me;
-  return `<div class="topline"><div class="brand">NONGSO <em>SPORTS</em></div><div class="who">${m ? (m.grade ? `${m.grade}학년 ${m.class}반 ${m.num}번 ${esc(m.name)}` : `${esc(m.name)} 선생님`) : ""}</div></div>`;
+  return `<div class="topline"><div class="brand">농소<em>스포츠스쿨</em></div><div class="who">${m ? (m.grade ? `${m.grade}학년 ${m.class}반 ${m.num}번 ${esc(m.name)}` : `${esc(m.name)} 선생님`) : ""}</div></div>`;
 }
 function vSplash() {
   return `<div class="splash" id="splash" role="button" tabindex="0" aria-label="시작하기" style="background-image:url(${PHOTO})">
@@ -66,7 +66,7 @@ function vLogin() {
 function hero() {
   const h = S.home, L = levelOf(h.me.xp);
   return `<section class="hero stack">
-    <div class="row between" style="position:relative;z-index:1"><span class="eyebrow">MY LEVEL</span><span class="tier">${tierOf(h.me.xp)}</span></div>
+    <div class="row between" style="position:relative;z-index:1"><span class="eyebrow">나의 스포츠</span><span class="tier">${tierOf(h.me.xp)}</span></div>
     <div class="lv"><div class="lv-num num"><small>LV</small>${L.lv}</div><div style="flex:1;padding-bottom:4px"><div class="row between small"><span class="muted">다음 레벨까지</span><span class="num">${L.need - L.into} XP</span></div><div class="bar" style="margin-top:6px"><i style="width:${L.into / L.need * 100}%"></i></div></div></div>
     <div class="stat3"><div><b class="num">${h.me.xp.toLocaleString()}</b><span>누적 XP</span></div><div><b class="num">${h.week_count}</b><span>이번 주 참여</span></div><div><b class="num">${h.total_count}</b><span>전체 참여</span></div></div>
   </section>`;
@@ -80,17 +80,17 @@ function vHome() {
     if (!row) return "";
     const pr = rk >= 1 && rk <= 3 ? (b.prizes || [])[rk - 1] : "";
     return `<button class="card" data-act="tab" data-v="rank" style="text-align:left;width:100%"><div class="row between"><span class="eyebrow">${esc(b.program || "아침 운동")} 학급 레이스</span><span class="back">보기 ›</span></div>
-      <div class="row" style="margin-top:8px;align-items:flex-end"><div class="num" style="font:800 46px/1 var(--display);color:var(--court)">${rk}<span style="font-size:18px">위</span></div><div class="small muted" style="padding-bottom:6px">${g}학년 ${b.rows.length}개 반 중 · 참여율 ${Math.round(row.rate * 100)}%${pr ? ` · 지금 상품 <b style="color:var(--fg)">${esc(pr)}</b>` : ""}<br>${me ? `참여 ${me.need}번만 더 모이면 ${me.up.rank}위로 올라가요` : "1등을 지키고 있어요"}</div></div></button>`;
+      <div class="row" style="margin-top:8px;align-items:flex-end"><div class="num" style="font:800 46px/1 var(--display);color:var(--court);white-space:nowrap;flex:none">${rk}<span style="font-size:18px">위</span></div><div class="small muted" style="padding-bottom:6px">${g}학년 ${b.rows.length}개 반 중 · 참여율 ${Math.round(row.rate * 100)}%${pr ? ` · 지금 상품 <b style="color:var(--fg)">${esc(pr)}</b>` : ""}<br>${me ? `참여 ${me.need}번만 더 모이면 ${me.up.rank}위로 올라가요` : "1등을 지키고 있어요"}</div></div></button>`;
   })() : "";
   const om = openMissions();
   return `<div class="stack">${topline()}
     ${act ? `<button class="sess" data-act="tab" data-v="check" style="border-color:var(--data)"><div class="tm num" data-live="homeLeft">${leftOf(act) > 0 ? clock(leftOf(act)) : "OK"}<small>${leftOf(act) > 0 ? "남음" : "완료 가능"}</small></div>
-      <div class="meta"><span class="state st-ACTIVE">ACTIVE</span><b style="margin-top:6px">${esc(act.program)} 활동 중</b><span class="small muted">${leftOf(act) > 0 ? "시간이 다 되면 CHECK-OUT QR을 찍어요" : "이제 CHECK-OUT QR을 찍어요"}</span></div></button>` : ""}
+      <div class="meta">${stTag("ACTIVE")}<b style="margin-top:6px">${esc(act.program)} 운동 중</b><span class="small muted">${leftOf(act) > 0 ? "시간이 다 되면 운동 완료 QR을 찍어요" : "이제 운동 완료 QR을 찍어요"}</span></div></button>` : ""}
     ${hero()}
-    <section class="stack"><div class="row between"><h3 style="font-size:17px">오늘 열린 운동</h3>${h.open.length ? '<span class="open">● LIVE</span>' : ""}</div>
+    <section class="stack"><div class="row between"><h3 style="font-size:17px">오늘 열린 운동</h3>${h.open.length ? '<span class="open">● 지금 열림</span>' : ""}</div>
       ${h.open.length ? h.open.map(o => `<button class="sess" data-act="pick" data-v="${o.id}"><div class="tm num">${o.min_seconds >= 60 ? Math.round(o.min_seconds / 60) : o.min_seconds}<small>${o.min_seconds >= 60 ? "분" : "초"}</small></div>
         <div class="meta"><b>${esc(o.program)}</b><span class="small muted">최소 ${mmss(o.min_seconds)} · +${o.xp} XP${o.geo ? " · 위치 인증" : ""}</span></div>
-        ${o.mine ? `<span class="state st-${o.mine.state}">${o.mine.state}</span>` : '<span class="chip">CHECK ›</span>'}</button>`).join("")
+        ${o.mine ? stTag(o.mine.state) : '<span class="chip">인증하기 ›</span>'}</button>`).join("")
         : '<div class="card small muted">지금 열린 출석이 없어요. 선생님이 TV에 QR을 띄우면 여기에 떠요.</div>'}</section>
     ${om.length ? `<section class="stack"><div class="row between"><h3 class="row" style="font-size:17px;gap:10px">오늘의 미션 ${BELL(om.length)}</h3><button class="back" data-act="sub" data-v="mission">전체 보기 ›</button></div>
       ${om.slice(0, 2).map(m => `<button class="sess" data-act="mstart" data-v="${m.id}"><div class="tm num">${m.goal >= 1000 ? (m.goal / 1000) + "k" : m.goal}<small>${MKIND[m.kind].unit}</small></div>
@@ -102,31 +102,31 @@ function vHome() {
 /* ---------- CHECK ---------- */
 function vCheck() {
   const h = S.home, open = h.open;
-  if (!open.length) return `<div class="stack">${topline()}<div class="pagehead"><span class="eyebrow">CHECK</span><h2>QR 출석</h2></div><div class="card muted">지금 열린 출석이 없어요.</div></div>`;
+  if (!open.length) return `<div class="stack">${topline()}<div class="pagehead"><span class="eyebrow">운동인증</span><h2>QR 운동인증</h2></div><div class="card muted">지금 열린 출석이 없어요.</div></div>`;
   const o = open.find(x => x.id === S.pick) || activeOf() || open[0];
   S.pick = o.id;
   const st = o.mine ? o.mine.state : "WAITING";
   let body = "";
   if (S.done && S.done.id === o.id) {
     const d = S.done;
-    body = `<div class="card xpburst"><span class="state st-COMPLETED">COMPLETED</span><b class="num">+${d.xp}</b><div class="eyebrow" style="color:var(--fg)">XP 획득</div>
+    body = `<div class="card xpburst">${stTag("COMPLETED", "운동 인증 완료")}<b class="num">+${d.xp}</b><div class="eyebrow" style="color:var(--fg)">XP 획득</div>
       ${d.up ? `<div class="msg ok" style="margin-top:14px">레벨 업! 이제 LV ${d.lv}이에요.</div>` : ""}<p class="small muted">${esc(o.program)} · ${mmss(d.secs)} 활동</p>
-      <button class="btn ghost" data-act="tab" data-v="my">SPORTS ID 보기</button></div>`;
+      <button class="btn ghost" data-act="tab" data-v="my">나의 스포츠 카드 보기</button></div>`;
   } else if (st === "ACTIVE") {
     const left = leftOf(o), pct = Math.min(1, 1 - left / o.min_seconds), C = 2 * Math.PI * 96;
-    body = `<div class="card stack" style="align-items:center;text-align:center"><span class="state st-ACTIVE">ACTIVE · 활동 중</span>
+    body = `<div class="card stack" style="align-items:center;text-align:center">${stTag("ACTIVE")}
       <div class="ring"><svg viewBox="0 0 220 220"><circle cx="110" cy="110" r="96" stroke="var(--panel2)" stroke-width="14" fill="none"/><circle data-live="ring" cx="110" cy="110" r="96" stroke="${left > 0 ? "var(--data)" : "var(--good)"}" stroke-width="14" fill="none" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/></svg>
-        <div class="in"><b class="num" data-live="left">${left > 0 ? clock(left) : "00:00"}</b><span class="small muted">${left > 0 ? "최소 활동시간 남음" : "CHECK-OUT 할 수 있어요"}</span></div></div>
+        <div class="in"><b class="num" data-live="left">${left > 0 ? clock(left) : "00:00"}</b><span class="small muted">${left > 0 ? "조금만 더 운동하면 인증할 수 있어요!" : "이제 운동 완료 QR을 찍어요"}</span></div></div>
       <p class="small muted" style="margin:0">시간은 학교 서버 시계로 재요. 앱을 닫아도 계속 흘러가요.</p>
-      ${scannerHTML("TV의 CHECK-OUT QR 찍기")}</div>`;
+      ${scannerHTML("TV의 운동 완료 QR 찍기")}</div>`;
   } else if (st === "WAITING") {
-    body = scannerHTML("TV의 CHECK-IN QR 찍기");
+    body = scannerHTML("TV의 운동 시작 QR 찍기");
   } else {
-    body = `<div class="card"><span class="state st-${st}">${st}</span><p class="small muted" style="margin:10px 0 0">${st === "FAILED" ? "CHECK-OUT을 하지 않고 세션이 끝났어요." : "오늘 이 프로그램은 끝났어요."}</p></div>`;
+    body = `<div class="card">${stTag(st)}<p class="small muted" style="margin:10px 0 0">${st === "FAILED" ? "운동 완료 QR을 찍기 전에 운동 시간이 끝났어요. 다음에 다시 해 봐요." : "오늘 이 프로그램은 끝났어요."}</p></div>`;
   }
   return `<div class="stack">${topline()}
-    <div class="pagehead"><span class="eyebrow">CHECK</span><h2>${esc(o.program)}</h2>
-      <div class="row small muted" style="flex-wrap:wrap;gap:8px"><span class="chip">최소 ${mmss(o.min_seconds)}</span><span class="chip">+${o.xp} XP</span>${o.geo ? '<span class="chip">위치 인증</span>' : ""}<span class="state st-${st}">${st}</span></div></div>
+    <div class="pagehead"><span class="eyebrow">운동인증</span><h2>${esc(o.program)}</h2>
+      <div class="row small muted" style="flex-wrap:wrap;gap:8px"><span class="chip">최소 ${mmss(o.min_seconds)}</span><span class="chip">+${o.xp} XP</span>${o.geo ? '<span class="chip">위치 인증</span>' : ""}${stTag(st)}</div></div>
     ${open.length > 1 ? `<div class="seg" style="grid-template-columns:repeat(${open.length},1fr)">${open.map(x => `<button data-act="pickstay" data-v="${x.id}" class="${x.id === o.id ? "on" : ""}">${esc(x.program)}</button>`).join("")}</div>` : ""}
     ${S.msg ? `<div class="msg ${S.msg.k}" role="alert">${esc(S.msg.t)}</div>` : ""}
     ${body}</div>`;
@@ -191,7 +191,7 @@ async function doScan(payload) {
     if (r.error) {
       S.msg = { k: r.error === "already_in" || r.error === "already_done" ? "info" : "bad", t: errText(r.error, r.error === "too_early" ? `${mmss(r.left)} 남았어요.` : r.error === "too_far" ? `(약 ${r.meters}m)` : "") };
     } else if (r.state === "ACTIVE") {
-      S.msg = { k: "ok", t: "CHECK-IN 완료. 지금부터 시간을 잴게요." }; S.done = null;
+      S.msg = { k: "ok", t: "운동 시작 인증 완료! 지금부터 시간을 잴게요." }; S.done = null;
     } else {
       const lv = levelOf(r.total_xp).lv;
       S.msg = null; S.done = { id: sid, xp: r.xp, secs: r.secs, up: lv > before, lv };
@@ -205,7 +205,7 @@ async function doScan(payload) {
 function vMy() {
   const h = S.home, L = levelOf(h.me.xp);
   return `<div class="stack">${topline()}
-    <div class="pagehead"><span class="eyebrow">MY SPORTS</span><h2>SPORTS ID</h2></div>
+    <div class="pagehead"><span class="eyebrow">내 기록</span><h2>나의 스포츠 카드</h2></div>
     <section class="idcard">
       <div class="row between"><span class="idno">NS-${esc(h.me.no)}</span><span class="tier">${tierOf(h.me.xp)}</span></div>
       <div class="idname">${esc(h.me.name)}</div><div class="small muted">농소중학교 · ${h.me.grade ? `${h.me.grade}학년 ${h.me.class}반 ${h.me.num}번` : `함께 운동하는 선생님 · 교사번호 ${esc(h.me.no)}`}</div>
@@ -225,14 +225,14 @@ function vRank() {
     body = `<div class="gtabs" role="tablist">${[1, 2, 3].map(x => `<button role="tab" aria-selected="${x === g}" data-act="rgrade" data-v="${x}" class="${x === g ? "on" : ""}">${x}학년${x === h.me.grade ? " (우리)" : ""}</button>`).join("")}</div>
       ${!b ? '<div class="card muted">불러오는 중이에요…</div>' : `${g === h.me.grade && b.rows.length ? (c ? `<div class="msg info">우리 반(${g}-${h.me.class})은 참여 <b>${c.need}번</b>만 더 모이면 ${g}-${c.up.cls}반을 따라잡아요.</div>` : `<div class="msg ok">우리 반이 ${g}학년 1등이에요!</div>`) : ""}
       ${raceHTML(b, false, g === h.me.grade ? h.me.class : 0)}
-      <p class="small muted" style="margin:0">점수는 참여율이에요. ${esc(b.program || "아침 운동")}에서 CHECK-IN과 CHECK-OUT을 모두 마친 학생만 세요. 기간: ${racePeriod(b)}</p>`}`;
+      <p class="small muted" style="margin:0">점수는 참여율이에요. ${esc(b.program || "아침 운동")}에서 운동 시작과 완료 인증을 모두 마친 학생만 세요. 기간: ${racePeriod(b)}</p>`}`;
   } else {
     const r = S.rank;
     body = !r ? '<div class="card muted">불러오는 중이에요…</div>' : `<div class="msg info small" style="font-weight:500">${h.me.grade ? `다른 친구 이름은 가운데 글자를 가려요. 나는 ${h.me.grade}학년 ${r.total}명 중` : `함께 운동하는 선생님 ${r.total}명 중`} <b>${r.my_rank}위</b>예요.</div>
       <div class="stack" style="gap:8px">${r.top.map(p => `<div class="rk ${p.me ? "me" : ""}"><div class="pos num p${p.rank}">${p.rank}</div><div><b>${p.me ? esc(h.me.name) + " (나)" : esc(p.name)}</b><div class="mini"><span>${h.me.grade ? `${h.me.grade}학년 ${p.class}반` : "선생님"}</span></div></div><div class="sc num">${p.xp.toLocaleString()}<small>XP</small></div></div>`).join("")}</div>`;
   }
   return `<div class="stack">${topline()}
-    <div class="pagehead"><span class="eyebrow">RANKING${cls && b ? ` · ${g}학년 · ${racePeriod(b)}` : ""}</span><h2>${tch ? "선생님 참여 순위" : cls ? "학급 레이스" : "개인 랭킹"}</h2></div>
+    <div class="pagehead"><span class="eyebrow">순위${cls && b ? ` · ${g}학년 · ${racePeriod(b)}` : ""}</span><h2>${tch ? "선생님 참여 순위" : cls ? "학급 레이스" : "개인 랭킹"}</h2></div>
     ${tch ? "" : `<div class="seg"><button data-act="rank" data-v="class" class="${cls ? "on" : ""}">학급 레이스</button><button data-act="rank" data-v="person" class="${cls ? "" : "on"}">개인</button></div>`}
     ${body}</div>`;
 }
@@ -242,7 +242,7 @@ function subHead(eb, title) { return `${topline()}<button class="back" data-act=
 function vMore() {
   const n = openMissions().length;
   const items = [["mission", "오늘의 미션", n ? `남은 미션 ${n}개` : "선생님이 낸 미션 하기"], ["pops", "POPS", "내 체력 기록과 등급 기준"], ["history", "활동 기록", "내 출석과 XP 내역"], ["install", "휴대폰에 설치", "홈 화면에 앱 아이콘 만들기"], ["settings", "설정", "비밀번호 바꾸기, 로그아웃"]];
-  return `<div class="stack">${topline()}<div class="pagehead"><span class="eyebrow">MORE</span><h2>더보기</h2></div>
+  return `<div class="stack">${topline()}<div class="pagehead"><span class="eyebrow">농소스포츠스쿨</span><h2>더보기</h2></div>
     <div class="menu">${items.map(i => `<button data-act="sub" data-v="${i[0]}"><span class="k">${i[1]}${i[0] === "mission" && n ? " " + BELL(n) : ""}</span><span class="d">${i[2]}</span><span class="muted">›</span></button>`).join("")}</div></div>`;
 }
 function vSub() {
@@ -252,22 +252,22 @@ function vSub() {
   if (k === "pops") return vPops();
   if (k === "history") {
     const h = S.hist;
-    return `<div class="stack">${subHead("HISTORY", "활동 기록")}${!h ? '<div class="card muted">불러오는 중이에요…</div>' : `
+    return `<div class="stack">${subHead("내 기록", "활동 기록")}${!h ? '<div class="card muted">불러오는 중이에요…</div>' : `
       <div class="card scroll"><table class="tbl"><thead><tr><th>날짜</th><th>프로그램</th><th>상태</th><th class="r">XP</th></tr></thead><tbody>
-      ${h.attendance.length ? h.attendance.map(a => `<tr><td class="num">${fmtDay(a.day)}</td><td>${esc(a.program)}</td><td><span class="state st-${a.state}">${a.state}</span></td><td class="r num">${a.xp ? "+" + a.xp : "0"}</td></tr>`).join("") : '<tr><td colspan="4" class="muted">아직 출석 기록이 없어요.</td></tr>'}</tbody></table></div>
+      ${h.attendance.length ? h.attendance.map(a => `<tr><td class="num">${fmtDay(a.day)}</td><td>${esc(a.program)}</td><td>${stTag(a.state)}</td><td class="r num">${a.xp ? "+" + a.xp : "0"}</td></tr>`).join("") : '<tr><td colspan="4" class="muted">아직 출석 기록이 없어요.</td></tr>'}</tbody></table></div>
       <div class="card scroll"><span class="eyebrow">XP 내역</span><table class="tbl" style="margin-top:8px"><tbody>
       ${h.xp.length ? h.xp.map(x => `<tr><td class="num muted">${fmtDT(x.created_at)}</td><td>${esc(x.reason)}</td><td class="r num">${x.amount > 0 ? "+" : ""}${x.amount}</td></tr>`).join("") : '<tr><td class="muted">아직 없어요.</td></tr>'}</tbody></table></div>
-      <p class="small muted" style="margin:0">FAILED는 CHECK-OUT을 하지 않고 세션이 끝난 기록이에요. MANUAL은 선생님이 직접 인정한 기록이에요.</p>`}</div>`;
+      <p class="small muted" style="margin:0">미완료는 운동 완료 QR을 찍기 전에 운동 시간이 끝난 기록이에요. 선생님 인정은 선생님이 직접 인정한 기록이에요.</p>`}</div>`;
   }
   if (k === "install") {
-    return `<div class="stack">${subHead("INSTALL", "휴대폰에 설치")}
+    return `<div class="stack">${subHead("더보기", "휴대폰에 설치")}
       <div class="card stack" style="gap:10px"><b>안드로이드 (크롬)</b><p class="small muted" style="margin:0">오른쪽 위 ⋮ 메뉴 → <b>홈 화면에 추가</b> 또는 <b>앱 설치</b>를 눌러요.</p>
       ${window.__installEvt ? '<button class="btn" data-act="install">지금 설치하기</button>' : ""}</div>
       <div class="card stack" style="gap:10px"><b>아이폰 (사파리)</b><p class="small muted" style="margin:0">아래 가운데 공유 버튼(□↑) → <b>홈 화면에 추가</b>를 눌러요. 사파리에서만 돼요.</p></div>
       <p class="small muted" style="margin:0">설치하면 바탕화면에 농소스포츠 아이콘이 생기고, 누르면 앱처럼 전체 화면으로 열려요.</p></div>`;
   }
   if (k === "settings") {
-    return `<div class="stack">${subHead("SETTINGS", "설정")}
+    return `<div class="stack">${subHead("더보기", "설정")}
       <form id="pwForm" class="card stack"><span class="eyebrow">비밀번호 바꾸기</span>
         <div class="field"><label for="opw">지금 비밀번호</label><input id="opw" type="password" required autocomplete="current-password"></div>
         <div class="field"><label for="npw">새 비밀번호 (8자 이상)</label><input id="npw" type="password" minlength="8" required autocomplete="new-password"></div>
@@ -340,7 +340,7 @@ function mCard(m) {
 }
 function vMissions() {
   const all = S.home.missions || [], open = all.filter(m => !m.done && new Date(m.closes_at) > serverNow()), rest = all.filter(m => !open.includes(m));
-  return `<div class="stack">${subHead("MISSION", "오늘의 미션")}
+  return `<div class="stack">${subHead("더보기", "오늘의 미션")}
     <div class="msg info small" style="font-weight:500">걷기는 휴대폰 움직임 센서로, 맨몸 운동은 카메라 자세 인식으로 세요. 목표를 채우면 자동으로 제출돼요.</div>
     ${open.map(mCard).join("") || '<div class="card muted">지금 할 미션이 없어요.</div>'}
     ${rest.length ? `<span class="eyebrow" style="margin-top:6px">지난 미션</span>${rest.map(mCard).join("")}` : ""}</div>`;
@@ -395,7 +395,7 @@ function stopAll() { stopScan(); if (runner) { runner.stop(); runner = null; } i
 /* ---------- 탭과 그리기 ---------- */
 function tabsBar() {
   const act = !!activeOf(), n = openMissions().length;
-  const t = [["home", "HOME", IC.home], ["check", "CHECK", IC.check], ["my", "MY SPORTS", IC.my], ["rank", "RANKING", IC.rank], ["more", "MORE", IC.more]];
+  const t = [["home", "홈", IC.home], ["check", "운동인증", IC.check], ["my", "내 기록", IC.my], ["rank", "순위", IC.rank], ["more", "더보기", IC.more]];
   return `<div class="tabs"><nav>${t.map(x => `<button data-act="tab" data-v="${x[0]}" class="${S.tab === x[0] ? "on" : ""}" aria-label="${x[1]}"><span class="check-dot ${x[0] === "check" && act ? "live" : ""}">${x[2]}${x[0] === "more" && n ? `<i class="tbadge num">${n}</i>` : ""}</span>${x[1]}</button>`).join("")}</nav></div>`;
 }
 function render() {
