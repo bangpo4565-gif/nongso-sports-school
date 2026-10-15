@@ -210,7 +210,7 @@ function parseRoster(text) {
     const name = parts.slice(3).join("").replace(/\s/g, "");
     if (parts.length < 4 || nums.some(n => !Number.isFinite(n)) || !name) { if (!/학년|이름|grade/i.test(line)) bad++; continue; }
     const [grade, cls, num] = nums;
-    if (grade < 1 || grade > 3 || cls < 1 || cls > 20 || num < 1 || num > 60) { bad++; continue; }
+    if (grade < 1 || grade > 3 || cls < 1 || cls > 20 || num < 1 || num > 99) { bad++; continue; }
     const k = `${grade}-${cls}-${num}`; if (seen.has(k)) continue; seen.add(k);
     out.push({ grade, class: cls, num, name });
   }
