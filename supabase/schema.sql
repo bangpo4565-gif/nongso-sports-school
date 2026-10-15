@@ -86,6 +86,12 @@ select * from (values (1, '아침 운동', 600, 30, true, 1), (2, '점심 운동
 where not exists (select 1 from programs);
 select setval('programs_id_seq', greatest((select max(id) from programs), 1));
 update settings set race_program_id = 1 where id = 1 and race_program_id is null;
+-- 학급 레이스에 함께 세는 프로그램 (설정의 세는 프로그램은 늘 들어가요)
+alter table programs add column if not exists in_race boolean not null default false;
+create or replace function race_prog(p_program int) returns boolean
+language sql stable security definer set search_path = public, extensions as $$
+  select p_program = (select race_program_id from settings where id = 1) or exists (select 1 from programs where id = p_program and in_race)
+$$;
 
 -- QR 출석 세션. 비밀값은 아무도 직접 못 읽어요
 create table if not exists qr_sessions (
@@ -330,21 +336,21 @@ declare st settings; days int;
 begin
   select * into st from settings where id = 1;
   select count(distinct q.day) into days from qr_sessions q
-  where q.program_id = st.race_program_id and (q.target_grade is null or q.target_grade = p_grade)
+  where race_prog(q.program_id) and (q.target_grade is null or q.target_grade = p_grade)
     and (st.race_from is null or q.day >= st.race_from) and (st.race_to is null or q.day <= st.race_to);
   return json_build_object(
     'grade', p_grade, 'days', days, 'from', st.race_from, 'to', st.race_to, 'prizes', st.prizes,
-    'program', (select name from programs where id = st.race_program_id),
+    'program', (select string_agg(name, ' · ' order by sort, id) from programs where race_prog(id)),
     'rows', coalesce((
       select json_agg(r order by r.rate desc, r.class) from (
         select c.class, c.n, coalesce(p.cnt, 0) as parts,
                case when c.n * greatest(days, 1) = 0 then 0 else round(coalesce(p.cnt, 0)::numeric / (c.n * greatest(days, 1)), 4) end as rate
         from (select class, count(*) as n from students where grade = p_grade and active group by class) c
         left join (
-          select s.class, count(*) as cnt from attendance a
+          select s.class, count(distinct (a.student_id, q.day)) as cnt from attendance a
           join qr_sessions q on q.id = a.session_id
           join students s on s.id = a.student_id
-          where a.state in ('COMPLETED', 'MANUAL') and q.program_id = st.race_program_id and s.grade = p_grade
+          where a.state in ('COMPLETED', 'MANUAL') and race_prog(q.program_id) and s.grade = p_grade
             and (st.race_from is null or q.day >= st.race_from) and (st.race_to is null or q.day <= st.race_to)
           group by s.class) p on p.class = c.class
       ) r), '[]'));
@@ -772,12 +778,13 @@ declare pid int := (p ->> 'id')::int;
 begin
   perform need_staff();
   if pid is null then
-    insert into programs (name, min_seconds, xp, geo, active, sort)
-    values (trim(p ->> 'name'), (p ->> 'min_seconds')::int, (p ->> 'xp')::int, coalesce((p ->> 'geo')::boolean, false), true,
+    insert into programs (name, min_seconds, xp, geo, in_race, active, sort)
+    values (trim(p ->> 'name'), (p ->> 'min_seconds')::int, (p ->> 'xp')::int, coalesce((p ->> 'geo')::boolean, false), coalesce((p ->> 'in_race')::boolean, false), true,
             coalesce((select max(sort) from programs), 0) + 1) returning id into pid;
   else
     update programs set name = coalesce(trim(p ->> 'name'), name), min_seconds = coalesce((p ->> 'min_seconds')::int, min_seconds),
-      xp = coalesce((p ->> 'xp')::int, xp), geo = coalesce((p ->> 'geo')::boolean, geo), active = coalesce((p ->> 'active')::boolean, active)
+      xp = coalesce((p ->> 'xp')::int, xp), geo = coalesce((p ->> 'geo')::boolean, geo), active = coalesce((p ->> 'active')::boolean, active),
+      in_race = coalesce((p ->> 'in_race')::boolean, in_race)
     where id = pid;
   end if;
   return pid;
@@ -814,11 +821,11 @@ declare st settings;
 begin
   perform need_staff();
   select * into st from settings where id = 1;
-  return json_build_object('from', st.race_from, 'to', st.race_to, 'program', (select name from programs where id = st.race_program_id),
+  return json_build_object('from', st.race_from, 'to', st.race_to, 'program', (select string_agg(name, ' · ' order by sort, id) from programs where race_prog(id)),
     'rows', coalesce((select json_agg(x order by x.done desc, x.xp desc, x.num) from (
       select s.id, s.student_no, s.num, s.name, s.xp, s.active, s.signed_up_at,
-        (select count(*) from attendance a join qr_sessions q on q.id = a.session_id
-          where a.student_id = s.id and a.state in ('COMPLETED', 'MANUAL') and q.program_id = st.race_program_id
+        (select count(distinct q.day) from attendance a join qr_sessions q on q.id = a.session_id
+          where a.student_id = s.id and a.state in ('COMPLETED', 'MANUAL') and race_prog(q.program_id)
             and (st.race_from is null or q.day >= st.race_from) and (st.race_to is null or q.day <= st.race_to)) as done,
         (select count(*) from attendance a where a.student_id = s.id and a.state in ('COMPLETED', 'MANUAL')) as all_done
       from students s where s.grade = 0) x), '[]'));

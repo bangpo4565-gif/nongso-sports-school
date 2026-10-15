@@ -348,11 +348,12 @@ function aPrograms() {
     <td class="r"><input class="pin num" data-f="min" type="number" min="0" step="0.5" value="${p ? +(p.min_seconds / 60).toFixed(2) : 10}" aria-label="최소 분" style="width:80px"> 분</td>
     <td class="r"><input class="pin num" data-f="xp" type="number" min="0" max="200" value="${p ? p.xp : 20}" aria-label="XP" style="width:70px"></td>
     <td><label class="small"><input type="checkbox" data-f="geo" ${p && p.geo ? "checked" : ""}> 위치 인증</label></td>
+    <td>${p && p.id === S.cfg?.settings?.race_program_id ? '<span class="small muted">늘 세요</span>' : `<label class="small"><input type="checkbox" data-f="race" ${p && p.in_race ? "checked" : ""}> 레이스에 세기</label>`}</td>
     <td>${p ? `<label class="small"><input type="checkbox" data-f="active" ${p.active ? "checked" : ""}> 사용</label>` : ""}</td>
     <td class="r"><button class="btn sm ${p ? "ghost" : ""}" data-act="psave" style="width:auto">${p ? "저장" : "추가"}</button></td></tr>`;
   return head("운동 시작 뒤 최소 시간이 지나야 완료 인증을 할 수 있어요", "운동 프로그램") +
-    `<div class="card scroll" style="padding:6px 10px">${!ps ? loading : `<table class="tbl ptbl"><thead><tr><th>프로그램</th><th class="r">최소 시간</th><th class="r">XP</th><th>위치</th><th>사용</th><th></th></tr></thead><tbody>${ps.map(row).join("")}${row(null)}</tbody></table>`}</div>
-    <p class="small muted">위치 인증을 켜면 설정에서 정한 기준점 반경 안에서만 출석돼요. 기준점이 비어 있으면 위치는 확인하지 않아요. 최소 시간은 10초(0.17분)부터 돼요.</p>`;
+    `<div class="card scroll" style="padding:6px 10px">${!ps ? loading : `<table class="tbl ptbl"><thead><tr><th>프로그램</th><th class="r">최소 시간</th><th class="r">XP</th><th>위치</th><th>학급 레이스</th><th>사용</th><th></th></tr></thead><tbody>${ps.map(row).join("")}${row(null)}</tbody></table>`}</div>
+    <p class="small muted">학급 레이스에 세기를 켜면 그 프로그램 출석도 반 순위에 들어가요 (한 학생이 하루에 여러 번 해도 하루 1번으로 세요). 위치 인증을 켜면 설정에서 정한 기준점 반경 안에서만 출석돼요. 기준점이 비어 있으면 위치는 확인하지 않아요. 최소 시간은 10초(0.17분)부터 돼요.</p>`;
 }
 
 /* ---------- 설정 ---------- */
@@ -715,6 +716,7 @@ document.addEventListener("click", async e => {
     case "psave": {
       const tr = b.closest("tr"), f = k => tr.querySelector(`[data-f="${k}"]`);
       const p = { name: f("name").value.trim(), min_seconds: Math.round(+f("min").value * 60), xp: Math.round(+f("xp").value), geo: f("geo").checked };
+      if (f("race")) p.in_race = f("race").checked;
       if (tr.dataset.pid) { p.id = +tr.dataset.pid; p.active = f("active").checked; }
       if (!p.name) { toast("이름을 써 주세요."); break; }
       if (p.min_seconds < 10 || p.min_seconds > 7200) { toast("최소 시간은 10초에서 120분 사이로 써 주세요."); break; }
