@@ -140,16 +140,16 @@ function aLive() {
 /* ---------- QR (TV) ---------- */
 function aQr() {
   if (!S.sid) return head("", "QR 화면") + `<div class="card">열린 출석이 없어요. <button class="btn sm" data-act="page" data-v="sessions" style="width:auto;margin-left:8px">QR 출석 열기</button></div>`;
-  const ses = (S.sessions || []).find(x => x.id === S.sid), inMode = S.qrMode === "in", q = S.qr;
+  const ses = (S.sessions || []).find(x => x.id === S.sid), one = !!ses?.one_scan, inMode = one || S.qrMode === "in", q = S.qr;
   const L = S.live?.rows || [], c = k => L.filter(x => x.state === k).length;
   return `${S.tv ? "" : head(`${esc(ses?.program || "")} · ${tgt(ses?.target_grade)} · TV에 전체화면으로 띄우는 화면`, "QR 화면", `<button class="btn sm" data-act="tv">TV 전체화면</button><button class="btn sm ghost" data-act="sclose" data-v="${S.sid}">출석 닫기</button>`)}
-    <div class="qrstage"><div class="qrbig ${S.qrMode}"><div class="mode" style="color:${inMode ? "var(--good)" : "var(--court)"}">${inMode ? "운동 시작" : "운동 완료"}</div>
+    <div class="qrstage"><div class="qrbig ${S.qrMode}"><div class="mode" style="color:${inMode ? "var(--good)" : "var(--court)"}">${one ? "출석 QR" : inMode ? "운동 시작" : "운동 완료"}</div>
       <div class="qrbox" id="qrbox" aria-label="출석 QR 코드">${q && q.err ? `<div style="color:#1d2027;font-weight:700;text-align:center">${esc(q.err)}</div>` : ""}</div>
       <div class="qrtimer"><div class="row between small"><span class="muted">다음 QR까지</span><b class="num" data-live="qrleft">${q && !q.err ? Math.ceil(q.leftAt ? (q.leftAt - Date.now()) / 1000 : 0) + "초" : "–"}</b></div><div class="bar ${inMode ? "teal" : ""}" style="margin-top:6px"><i data-live="qrbar" style="width:100%;transition:none"></i></div></div>
-      <div class="small muted" style="text-align:center">${esc(ses?.program || "")}${S.live ? " · 최소 " + mmss(S.live.session.min_seconds) : ""} · 휴대폰 기본 카메라나 학생 앱 운동인증 탭으로 찍어요</div></div>
-    <div class="stack"><div class="toggle"><button data-act="qrmode" data-v="in" class="in ${inMode ? "on" : ""}">운동 시작</button><button data-act="qrmode" data-v="out" class="out ${inMode ? "" : "on"}">운동 완료</button></div>
+      <div class="small muted" style="text-align:center">${esc(ses?.program || "")}${one ? " · 한 번 찍으면 바로 인정" : S.live ? " · 최소 " + mmss(S.live.session.min_seconds) : ""} · 휴대폰 기본 카메라나 학생 앱 운동인증 탭으로 찍어요</div></div>
+    <div class="stack">${one ? "" : `<div class="toggle"><button data-act="qrmode" data-v="in" class="in ${inMode ? "on" : ""}">운동 시작</button><button data-act="qrmode" data-v="out" class="out ${inMode ? "" : "on"}">운동 완료</button></div>`}
       <div class="livehead" style="margin:0">${["ACTIVE", "COMPLETED", "MANUAL"].map(k => `<div class="count">${stTag(k)}<b class="num" data-live="c${k}">${c(k)}</b></div>`).join("")}</div>
-      ${S.tv ? `<div class="row" style="gap:8px"><button class="btn ghost sm" data-act="tvoff" style="flex:1">전체화면 끝내기</button><button class="btn sm" data-act="sclose" data-v="${S.sid}" style="flex:1">출석 닫기</button></div>` : `<div class="card stack small" style="gap:8px"><b>대리 출석을 막는 방법</b><span class="muted">QR은 ${S.cfg?.settings?.qr_seconds || 30}초마다 바뀌고, 사진으로 찍어 보내도 곧 만료돼요.</span><span class="muted">한 휴대폰으로는 한 학생만 출석할 수 있고, 완료 QR은 운동을 시작한 휴대폰으로만 찍을 수 있어요.</span><span class="muted">시간은 학교 서버 시계로 재요.</span></div>`}
+      ${S.tv ? `<div class="row" style="gap:8px"><button class="btn ghost sm" data-act="tvoff" style="flex:1">전체화면 끝내기</button><button class="btn sm" data-act="sclose" data-v="${S.sid}" style="flex:1">출석 닫기</button></div>` : `<div class="card stack small" style="gap:8px"><b>대리 출석을 막는 방법</b><span class="muted">QR은 ${S.cfg?.settings?.qr_seconds || 30}초마다 바뀌고, 사진으로 찍어 보내도 곧 만료돼요.</span><span class="muted">한 휴대폰으로는 한 학생만 출석할 수 있어요.${one ? "" : " 완료 QR은 운동을 시작한 휴대폰으로만 찍을 수 있어요."}</span><span class="muted">시간은 학교 서버 시계로 재요.</span></div>`}
     </div></div>`;
 }
 let qrTimer = 0, qrKey = "";
@@ -157,6 +157,7 @@ async function refreshQr() {
   clearTimeout(qrTimer);
   if (S.view !== "admin" || S.page !== "qr" || !S.sid) return;
   try {
+    if ((S.sessions || []).find(x => x.id === S.sid)?.one_scan) S.qrMode = "in";
     const r = await call("admin_qr", { p_session: S.sid, p_mode: S.qrMode });
     S.qr = { payload: r.payload, seconds: r.seconds, leftAt: Date.now() + r.left * 1000 };
     qrTimer = setTimeout(refreshQr, Math.max(1000, r.left * 1000 + 300));
@@ -347,12 +348,13 @@ function aPrograms() {
   const row = p => `<tr data-pid="${p ? p.id : ""}"><td><input class="pin" data-f="name" value="${esc(p ? p.name : "")}" placeholder="새 프로그램 이름" aria-label="이름"></td>
     <td class="r"><input class="pin num" data-f="min" type="number" min="0" step="0.5" value="${p ? +(p.min_seconds / 60).toFixed(2) : 10}" aria-label="최소 분" style="width:80px"> 분</td>
     <td class="r"><input class="pin num" data-f="xp" type="number" min="0" max="200" value="${p ? p.xp : 20}" aria-label="XP" style="width:70px"></td>
+    <td><label class="small"><input type="checkbox" data-f="one" ${!p || p.one_scan ? "checked" : ""}> 시작 QR만</label></td>
     <td><label class="small"><input type="checkbox" data-f="geo" ${p && p.geo ? "checked" : ""}> 위치 인증</label></td>
     <td>${p && p.id === S.cfg?.settings?.race_program_id ? '<span class="small muted">늘 세요</span>' : `<label class="small"><input type="checkbox" data-f="race" ${p && p.in_race ? "checked" : ""}> 레이스에 세기</label>`}</td>
     <td>${p ? `<label class="small"><input type="checkbox" data-f="active" ${p.active ? "checked" : ""}> 사용</label>` : ""}</td>
     <td class="r"><button class="btn sm ${p ? "ghost" : ""}" data-act="psave" style="width:auto">${p ? "저장" : "추가"}</button></td></tr>`;
-  return head("운동 시작 뒤 최소 시간이 지나야 완료 인증을 할 수 있어요", "운동 프로그램") +
-    `<div class="card scroll" style="padding:6px 10px">${!ps ? loading : `<table class="tbl ptbl"><thead><tr><th>프로그램</th><th class="r">최소 시간</th><th class="r">XP</th><th>위치</th><th>학급 레이스</th><th>사용</th><th></th></tr></thead><tbody>${ps.map(row).join("")}${row(null)}</tbody></table>`}</div>
+  return head("시작 QR만 켜면 한 번 찍을 때 바로 인정돼요. 끄면 최소 시간 뒤 완료 QR까지 찍어야 해요", "운동 프로그램") +
+    `<div class="card scroll" style="padding:6px 10px">${!ps ? loading : `<table class="tbl ptbl"><thead><tr><th>프로그램</th><th class="r">최소 시간</th><th class="r">XP</th><th>인증 방식</th><th>위치</th><th>학급 레이스</th><th>사용</th><th></th></tr></thead><tbody>${ps.map(row).join("")}${row(null)}</tbody></table>`}</div>
     <p class="small muted">학급 레이스에 세기를 켜면 그 프로그램 출석도 반 순위에 들어가요 (한 학생이 하루에 여러 번 해도 하루 1번으로 세요). 위치 인증을 켜면 설정에서 정한 기준점 반경 안에서만 출석돼요. 기준점이 비어 있으면 위치는 확인하지 않아요. 최소 시간은 10초(0.17분)부터 돼요.</p>`;
 }
 
@@ -715,7 +717,7 @@ document.addEventListener("click", async e => {
       await busy(async () => { await call("admin_delete_mission", { p_mission: v }); if (S.mview === v) S.mview = null; await load("mission"); }, "지웠어요"); break;
     case "psave": {
       const tr = b.closest("tr"), f = k => tr.querySelector(`[data-f="${k}"]`);
-      const p = { name: f("name").value.trim(), min_seconds: Math.round(+f("min").value * 60), xp: Math.round(+f("xp").value), geo: f("geo").checked };
+      const p = { name: f("name").value.trim(), min_seconds: Math.round(+f("min").value * 60), xp: Math.round(+f("xp").value), geo: f("geo").checked, one_scan: f("one").checked };
       if (f("race")) p.in_race = f("race").checked;
       if (tr.dataset.pid) { p.id = +tr.dataset.pid; p.active = f("active").checked; }
       if (!p.name) { toast("이름을 써 주세요."); break; }

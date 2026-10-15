@@ -88,6 +88,8 @@ select setval('programs_id_seq', greatest((select max(id) from programs), 1));
 update settings set race_program_id = 1 where id = 1 and race_program_id is null;
 -- 학급 레이스에 함께 세는 프로그램 (설정의 세는 프로그램은 늘 들어가요)
 alter table programs add column if not exists in_race boolean not null default false;
+-- 시작 QR 한 번만 찍으면 바로 인정 (끄면 시작 QR + 최소 시간 뒤 완료 QR)
+alter table programs add column if not exists one_scan boolean not null default true;
 create or replace function race_prog(p_program int) returns boolean
 language sql stable security definer set search_path = public, extensions as $$
   select p_program = (select race_program_id from settings where id = 1) or exists (select 1 from programs where id = p_program and in_race)
@@ -370,7 +372,7 @@ begin
                    where a.student_id = s.id and a.state in ('COMPLETED', 'MANUAL') and q.day > today - 7),
     'total_count', (select count(*) from attendance where student_id = s.id and state in ('COMPLETED', 'MANUAL')),
     'open', coalesce((
-      select json_agg(json_build_object('id', q.id, 'program', p.name, 'min_seconds', p.min_seconds, 'xp', p.xp, 'geo', p.geo,
+      select json_agg(json_build_object('id', q.id, 'program', p.name, 'min_seconds', p.min_seconds, 'xp', p.xp, 'geo', p.geo, 'one_scan', p.one_scan,
         'mine', (select json_build_object('state', a.state, 'in_at', a.in_at, 'out_at', a.out_at, 'xp', a.xp) from attendance a where a.session_id = q.id and a.student_id = s.id))
         order by q.opened_at)
       from qr_sessions q join programs p on p.id = q.program_id
@@ -512,6 +514,11 @@ begin
     if p_device is not null and exists (select 1 from attendance where session_id = sid and device_id = p_device) then
       return json_build_object('error', 'device_used');
     end if;
+    if p.one_scan then
+      insert into attendance (session_id, student_id, state, in_at, out_at, xp, device_id) values (sid, s.id, 'COMPLETED', now(), now(), p.xp, p_device) returning * into a;
+      perform give_xp(s.id, p.xp, p.name || ' 출석', 'att:' || a.id);
+      return json_build_object('ok', true, 'state', 'COMPLETED', 'xp', p.xp, 'secs', 0, 'one_scan', true, 'total_xp', (select xp from students where id = s.id));
+    end if;
     insert into attendance (session_id, student_id, state, in_at, device_id) values (sid, s.id, 'ACTIVE', now(), p_device) returning * into a;
     return json_build_object('ok', true, 'state', 'ACTIVE', 'in_at', a.in_at, 'min_seconds', p.min_seconds, 'program', p.name);
   end if;
@@ -565,7 +572,7 @@ language plpgsql stable security definer set search_path = public, extensions as
 begin
   perform need_staff();
   return coalesce((select json_agg(x order by x.opened_at desc) from (
-    select q.id, q.day, q.opened_at, q.closed_at, q.target_grade, p.name as program,
+    select q.id, q.day, q.opened_at, q.closed_at, q.target_grade, p.name as program, p.one_scan,
       (select count(*) from attendance a where a.session_id = q.id and a.state in ('COMPLETED', 'MANUAL')) as done,
       (select count(*) from attendance a where a.session_id = q.id and a.state = 'ACTIVE') as active
     from qr_sessions q join programs p on p.id = q.program_id
@@ -778,13 +785,13 @@ declare pid int := (p ->> 'id')::int;
 begin
   perform need_staff();
   if pid is null then
-    insert into programs (name, min_seconds, xp, geo, in_race, active, sort)
-    values (trim(p ->> 'name'), (p ->> 'min_seconds')::int, (p ->> 'xp')::int, coalesce((p ->> 'geo')::boolean, false), coalesce((p ->> 'in_race')::boolean, false), true,
+    insert into programs (name, min_seconds, xp, geo, in_race, one_scan, active, sort)
+    values (trim(p ->> 'name'), (p ->> 'min_seconds')::int, (p ->> 'xp')::int, coalesce((p ->> 'geo')::boolean, false), coalesce((p ->> 'in_race')::boolean, false), coalesce((p ->> 'one_scan')::boolean, true), true,
             coalesce((select max(sort) from programs), 0) + 1) returning id into pid;
   else
     update programs set name = coalesce(trim(p ->> 'name'), name), min_seconds = coalesce((p ->> 'min_seconds')::int, min_seconds),
       xp = coalesce((p ->> 'xp')::int, xp), geo = coalesce((p ->> 'geo')::boolean, geo), active = coalesce((p ->> 'active')::boolean, active),
-      in_race = coalesce((p ->> 'in_race')::boolean, in_race)
+      one_scan = coalesce((p ->> 'one_scan')::boolean, one_scan), in_race = coalesce((p ->> 'in_race')::boolean, in_race)
     where id = pid;
   end if;
   return pid;

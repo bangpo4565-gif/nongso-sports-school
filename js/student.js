@@ -96,7 +96,7 @@ function vHome() {
     <button class="gcard ghome" data-act="guide"><span class="gico" aria-hidden="true">🏃</span><span class="gtx"><b>농소스포츠스쿨 주요 기능</b><span>여기서 할 수 있는 것을 한눈에 봐요</span></span><span class="back">보기 ›</span></button>
     <section class="stack"><div class="row between"><h3 style="font-size:17px">오늘 열린 운동</h3>${h.open.length ? '<span class="open">● 지금 열림</span>' : ""}</div>
       ${h.open.length ? h.open.map(o => `<button class="sess" data-act="pick" data-v="${o.id}"><div class="tm num">${o.min_seconds >= 60 ? Math.round(o.min_seconds / 60) : o.min_seconds}<small>${o.min_seconds >= 60 ? "분" : "초"}</small></div>
-        <div class="meta"><b>${esc(o.program)}</b><span class="small muted">최소 ${mmss(o.min_seconds)} · +${o.xp} XP${o.geo ? " · 위치 인증" : ""}</span></div>
+        <div class="meta"><b>${esc(o.program)}</b><span class="small muted">${o.one_scan ? "QR 한 번이면 인정" : "최소 " + mmss(o.min_seconds)} · +${o.xp} XP${o.geo ? " · 위치 인증" : ""}</span></div>
         ${o.mine ? stTag(o.mine.state) : '<span class="chip">인증하기 ›</span>'}</button>`).join("")
         : '<div class="card small muted">지금 열린 출석이 없어요. 선생님이 TV에 QR을 띄우면 여기에 떠요.</div>'}</section>
     ${homeFree()}
@@ -130,7 +130,7 @@ function vCheck() {
   if (S.done && S.done.id === o.id) {
     const d = S.done;
     body = `<div class="card xpburst">${stTag("COMPLETED", "운동 인증 완료")}<b class="num">+${d.xp}</b><div class="eyebrow" style="color:var(--fg)">XP 획득</div>
-      ${d.up ? `<div class="msg ok" style="margin-top:14px">레벨 업! 이제 LV ${d.lv}이에요.</div>` : ""}<p class="small muted">${esc(o.program)} · ${mmss(d.secs)} 활동</p>
+      ${d.up ? `<div class="msg ok" style="margin-top:14px">레벨 업! 이제 LV ${d.lv}이에요.</div>` : ""}<p class="small muted">${esc(o.program)} · ${d.secs ? mmss(d.secs) + " 활동" : "출석 인정"}</p>
       <button class="btn ghost" data-act="tab" data-v="my">나의 스포츠 카드 보기</button></div>`;
   } else if (st === "ACTIVE") {
     const left = leftOf(o), pct = Math.min(1, 1 - left / o.min_seconds), C = 2 * Math.PI * 96;
@@ -140,13 +140,13 @@ function vCheck() {
       <p class="small muted" style="margin:0">시간은 학교 서버 시계로 재요. 앱을 닫아도 계속 흘러가요.</p>
       ${scannerHTML("TV의 운동 완료 QR 찍기")}</div>`;
   } else if (st === "WAITING") {
-    body = scannerHTML("TV의 운동 시작 QR 찍기");
+    body = scannerHTML(o.one_scan ? "TV의 출석 QR 찍기" : "TV의 운동 시작 QR 찍기");
   } else {
     body = `<div class="card">${stTag(st)}<p class="small muted" style="margin:10px 0 0">${st === "FAILED" ? "운동 완료 QR을 찍기 전에 운동 시간이 끝났어요. 다음에 다시 해 봐요." : "오늘 이 프로그램은 끝났어요."}</p></div>`;
   }
   return `<div class="stack">${topline()}
     <div class="pagehead"><span class="eyebrow">운동인증</span><h2>${esc(o.program)}</h2>
-      <div class="row small muted" style="flex-wrap:wrap;gap:8px"><span class="chip">최소 ${mmss(o.min_seconds)}</span><span class="chip">+${o.xp} XP</span>${o.geo ? '<span class="chip">위치 인증</span>' : ""}${stTag(st)}</div></div>
+      <div class="row small muted" style="flex-wrap:wrap;gap:8px"><span class="chip">${o.one_scan ? "QR 한 번이면 인정" : "최소 " + mmss(o.min_seconds)}</span><span class="chip">+${o.xp} XP</span>${o.geo ? '<span class="chip">위치 인증</span>' : ""}${stTag(st)}</div></div>
     ${open.length > 1 ? `<div class="seg" style="grid-template-columns:repeat(${open.length},1fr)">${open.map(x => `<button data-act="pickstay" data-v="${x.id}" class="${x.id === o.id ? "on" : ""}">${esc(x.program)}</button>`).join("")}</div>` : ""}
     ${S.msg ? `<div class="msg ${S.msg.k}" role="alert">${esc(S.msg.t)}</div>` : ""}
     ${body}</div>`;
@@ -246,7 +246,7 @@ function vRank() {
     body = `<div class="gtabs" role="tablist">${[1, 2, 3].map(x => `<button role="tab" aria-selected="${x === g}" data-act="rgrade" data-v="${x}" class="${x === g ? "on" : ""}">${x}학년${x === h.me.grade ? " (우리)" : ""}</button>`).join("")}</div>
       ${!b ? '<div class="card muted">불러오는 중이에요…</div>' : `${g === h.me.grade && b.rows.length ? (c ? `<div class="msg info">우리 반(${g}-${h.me.class})은 참여 <b>${c.need}번</b>만 더 모이면 ${g}-${c.up.cls}반을 따라잡아요.</div>` : `<div class="msg ok">우리 반이 ${g}학년 1등이에요!</div>`) : ""}
       ${raceHTML(b, false, g === h.me.grade ? h.me.class : 0)}
-      <p class="small muted" style="margin:0">점수는 참여율이에요. ${esc(b.program || "아침 운동")}에서 운동 시작과 완료 인증을 모두 마친 학생만 세요. 기간: ${racePeriod(b)}</p>`}`;
+      <p class="small muted" style="margin:0">점수는 참여율이에요. ${esc(b.program || "아침 운동")}에서 출석 인증을 마친 학생을 세요. 한 사람은 하루 1번만 세요. 기간: ${racePeriod(b)}</p>`}`;
   } else {
     const r = S.rank;
     body = !r ? '<div class="card muted">불러오는 중이에요…</div>' : `<div class="msg info small" style="font-weight:500">${h.me.grade ? `다른 친구 이름은 가운데 글자를 가려요. 나는 ${h.me.grade}학년 ${r.total}명 중` : `함께 운동하는 선생님 ${r.total}명 중`} <b>${r.my_rank}위</b>예요.</div>
