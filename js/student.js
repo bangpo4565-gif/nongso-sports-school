@@ -450,7 +450,8 @@ function render() {
   else if (!S.home) html = `<div class="phone"><div class="card muted" style="margin-top:40px">불러오는 중이에요…</div></div>`;
   else {
     const v = S.tab === "home" ? (S.sub === "guide" ? vGuide() : vHome()) : S.tab === "check" ? vCheck() : S.tab === "my" ? vMy() : S.tab === "rank" ? vRank() : S.sub ? vSub() : vMore();
-    html = `<div class="phone ${S.tab === "rank" && S.rankMode === "class" && S.home?.me?.grade ? "wide" : ""}">${v}</div>${tabsBar()}`;
+    const gb = S.fromGuide && !(S.tab === "home" && S.sub === "guide") ? `<button class="gback" data-act="guide">${IC.back} 주요 기능으로 돌아가기</button>` : "";
+    html = `<div class="phone ${S.tab === "rank" && S.rankMode === "class" && S.home?.me?.grade ? "wide" : ""}">${gb && v.includes(topline()) ? v.replace(topline(), topline() + gb) : gb + v}</div>${tabsBar()}`;
   }
   $app.innerHTML = html;
   if (S.view === "splash") { const sp = document.getElementById("splash"); sp.addEventListener("click", go); sp.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") go(); }); clearTimeout(window.__spT); window.__spT = setTimeout(go, 1800); }
@@ -512,6 +513,8 @@ function makeRunner() {
 document.addEventListener("click", async e => {
   const b = e.target.closest("[data-act]"); if (!b) return;
   const act = b.dataset.act, v = b.dataset.v;
+  if (act === "tab" || act === "sub" || act === "guide") S.fromGuide = !!b.closest(".glist");
+  if (S.fromGuide) S.gScroll = window.scrollY;
   switch (act) {
     case "login-tab": S.loginTab = v; S.msg = null; render(); break;
     case "tab":
@@ -519,7 +522,7 @@ document.addEventListener("click", async e => {
       if (v === "rank") { if (S.home.me.grade) loadRace(S.raceGrade).then(render).catch(() => {}); if (!S.rank) call("student_rank").then(r => { S.rank = r; render(); }).catch(() => {}); }
       if (v === "home" || v === "check") loadHome().then(render).catch(() => {});
       break;
-    case "guide": stopScan(); S.tab = "home"; S.sub = "guide"; render(); window.scrollTo(0, 0); break;
+    case "guide": stopScan(); S.tab = "home"; S.sub = "guide"; render(); window.scrollTo(0, b.classList.contains("gback") ? S.gScroll || 0 : 0); break;
     case "pick": S.pick = v; S.tab = "check"; S.msg = null; S.done = null; render(); window.scrollTo(0, 0); break;
     case "pickstay": S.pick = v; S.msg = null; S.done = null; stopScan(); render(); break;
     case "scanstart": startScan(); break;
