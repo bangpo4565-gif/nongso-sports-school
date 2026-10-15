@@ -137,14 +137,14 @@ function aQr() {
   if (!S.sid) return head("", "QR 화면") + `<div class="card">열린 출석이 없어요. <button class="btn sm" data-act="page" data-v="sessions" style="width:auto;margin-left:8px">QR 출석 열기</button></div>`;
   const ses = (S.sessions || []).find(x => x.id === S.sid), inMode = S.qrMode === "in", q = S.qr;
   const L = S.live?.rows || [], c = k => L.filter(x => x.state === k).length;
-  return `${S.tv ? "" : head(`${esc(ses?.program || "")} · ${tgt(ses?.target_grade)} · TV에 전체화면으로 띄우는 화면`, "QR 화면", `<button class="btn sm" data-act="tv">TV 전체화면</button>`)}
+  return `${S.tv ? "" : head(`${esc(ses?.program || "")} · ${tgt(ses?.target_grade)} · TV에 전체화면으로 띄우는 화면`, "QR 화면", `<button class="btn sm" data-act="tv">TV 전체화면</button><button class="btn sm ghost" data-act="sclose" data-v="${S.sid}">출석 닫기</button>`)}
     <div class="qrstage"><div class="qrbig ${S.qrMode}"><div class="mode" style="color:${inMode ? "var(--good)" : "var(--court)"}">${inMode ? "운동 시작" : "운동 완료"}</div>
       <div class="qrbox" id="qrbox" aria-label="출석 QR 코드">${q && q.err ? `<div style="color:#1d2027;font-weight:700;text-align:center">${esc(q.err)}</div>` : ""}</div>
       <div class="qrtimer"><div class="row between small"><span class="muted">다음 QR까지</span><b class="num" data-live="qrleft">${q && !q.err ? Math.ceil(q.leftAt ? (q.leftAt - Date.now()) / 1000 : 0) + "초" : "–"}</b></div><div class="bar ${inMode ? "teal" : ""}" style="margin-top:6px"><i data-live="qrbar" style="width:100%;transition:none"></i></div></div>
       <div class="small muted" style="text-align:center">${esc(ses?.program || "")}${S.live ? " · 최소 " + mmss(S.live.session.min_seconds) : ""} · 휴대폰 기본 카메라나 학생 앱 운동인증 탭으로 찍어요</div></div>
     <div class="stack"><div class="toggle"><button data-act="qrmode" data-v="in" class="in ${inMode ? "on" : ""}">운동 시작</button><button data-act="qrmode" data-v="out" class="out ${inMode ? "" : "on"}">운동 완료</button></div>
       <div class="livehead" style="margin:0">${["ACTIVE", "COMPLETED", "MANUAL"].map(k => `<div class="count">${stTag(k)}<b class="num" data-live="c${k}">${c(k)}</b></div>`).join("")}</div>
-      ${S.tv ? `<button class="btn ghost sm" data-act="tvoff">전체화면 끝내기</button>` : `<div class="card stack small" style="gap:8px"><b>대리 출석을 막는 방법</b><span class="muted">QR은 ${S.cfg?.settings?.qr_seconds || 30}초마다 바뀌고, 사진으로 찍어 보내도 곧 만료돼요.</span><span class="muted">한 휴대폰으로는 한 학생만 출석할 수 있고, 완료 QR은 운동을 시작한 휴대폰으로만 찍을 수 있어요.</span><span class="muted">시간은 학교 서버 시계로 재요.</span></div>`}
+      ${S.tv ? `<div class="row" style="gap:8px"><button class="btn ghost sm" data-act="tvoff" style="flex:1">전체화면 끝내기</button><button class="btn sm" data-act="sclose" data-v="${S.sid}" style="flex:1">출석 닫기</button></div>` : `<div class="card stack small" style="gap:8px"><b>대리 출석을 막는 방법</b><span class="muted">QR은 ${S.cfg?.settings?.qr_seconds || 30}초마다 바뀌고, 사진으로 찍어 보내도 곧 만료돼요.</span><span class="muted">한 휴대폰으로는 한 학생만 출석할 수 있고, 완료 QR은 운동을 시작한 휴대폰으로만 찍을 수 있어요.</span><span class="muted">시간은 학교 서버 시계로 재요.</span></div>`}
     </div></div>`;
 }
 let qrTimer = 0, qrKey = "";
@@ -543,7 +543,9 @@ document.addEventListener("click", async e => {
       S.sid = await call("admin_open_session", { p_program: p, p_grade: g ? +g : null }); S.sessions = null; S.qrMode = "in"; go("qr");
     }, "출석을 열었어요. 이 화면을 TV에 띄워 주세요."); break;
     case "sclose": if (!confirm("이 출석을 닫을까요? 아직 완료 QR을 안 찍은 학생은 미완료가 돼요.")) break;
-      await busy(async () => { const n = await call("admin_close_session", { p_session: v }); toast(`닫았어요${n ? ` (미완료 ${n}명)` : ""}`); S.sessions = await call("admin_sessions", { p_days: 14 }); if (S.page === "live") await loadLive(); render(); }); break;
+      await busy(async () => { const n = await call("admin_close_session", { p_session: v }); toast(`닫았어요${n ? ` (미완료 ${n}명)` : ""}`); S.sessions = await call("admin_sessions", { p_days: 14 });
+        if (S.page === "qr") return go("sessions");
+        if (S.page === "live") await loadLive(); render(); }); break;
     case "sreopen": await busy(async () => { await call("admin_reopen_session", { p_session: v }); S.sessions = await call("admin_sessions", { p_days: 14 }); if (S.page === "live") await loadLive(); render(); }, "다시 열었어요"); break;
     case "golive": S.sid = v; S.live = null; S.liveClass = ""; S.liveClasses = null; go("live"); break;
     case "goqr": S.sid = v; go("qr"); break;
