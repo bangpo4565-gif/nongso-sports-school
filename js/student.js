@@ -87,6 +87,7 @@ function vHome() {
     ${act ? `<button class="sess" data-act="tab" data-v="check" style="border-color:var(--data)"><div class="tm num" data-live="homeLeft">${leftOf(act) > 0 ? clock(leftOf(act)) : "OK"}<small>${leftOf(act) > 0 ? "남음" : "완료 가능"}</small></div>
       <div class="meta">${stTag("ACTIVE")}<b style="margin-top:6px">${esc(act.program)} 운동 중</b><span class="small muted">${leftOf(act) > 0 ? "시간이 다 되면 운동 완료 QR을 찍어요" : "이제 운동 완료 QR을 찍어요"}</span></div></button>` : ""}
     ${hero()}
+    <button class="gcard ghome" data-act="guide"><span class="gico" aria-hidden="true">🏃</span><span class="gtx"><b>농소스포츠스쿨 주요 기능</b><span>여기서 할 수 있는 것을 한눈에 봐요</span></span><span class="back">보기 ›</span></button>
     <section class="stack"><div class="row between"><h3 style="font-size:17px">오늘 열린 운동</h3>${h.open.length ? '<span class="open">● 지금 열림</span>' : ""}</div>
       ${h.open.length ? h.open.map(o => `<button class="sess" data-act="pick" data-v="${o.id}"><div class="tm num">${o.min_seconds >= 60 ? Math.round(o.min_seconds / 60) : o.min_seconds}<small>${o.min_seconds >= 60 ? "분" : "초"}</small></div>
         <div class="meta"><b>${esc(o.program)}</b><span class="small muted">최소 ${mmss(o.min_seconds)} · +${o.xp} XP${o.geo ? " · 위치 인증" : ""}</span></div>
@@ -252,7 +253,7 @@ function externalUrl(ia) {
 function subHead(eb, title) { return `${topline()}<button class="back" data-act="sub" data-v="">${IC.back} 더보기</button><div class="pagehead"><span class="eyebrow">${eb}</span><h2>${title}</h2></div>`; }
 function vMore() {
   const n = openMissions().length;
-  const items = [["guide", "주요 기능 안내", "농소스포츠스쿨에서 할 수 있는 것"], ["mission", "오늘의 미션", n ? `남은 미션 ${n}개` : "선생님이 낸 미션 하기"], ["pops", "POPS", "내 체력 기록과 등급 기준"], ["history", "활동 기록", "내 출석과 XP 내역"], ["install", "휴대폰에 설치", "홈 화면에 앱 아이콘 만들기"], ["settings", "설정", "비밀번호 바꾸기, 로그아웃"]];
+  const items = [["mission", "오늘의 미션", n ? `남은 미션 ${n}개` : "선생님이 낸 미션 하기"], ["pops", "POPS", "내 체력 기록과 등급 기준"], ["history", "활동 기록", "내 출석과 XP 내역"], ["install", "휴대폰에 설치", "홈 화면에 앱 아이콘 만들기"], ["settings", "설정", "비밀번호 바꾸기, 로그아웃"]];
   return `<div class="stack">${topline()}<div class="pagehead"><span class="eyebrow">농소스포츠스쿨</span><h2>더보기</h2></div>
     <div class="menu">${items.map(i => `<button data-act="sub" data-v="${i[0]}"><span class="k">${i[1]}${i[0] === "mission" && n ? " " + BELL(n) : ""}</span><span class="d">${i[2]}</span><span class="muted">›</span></button>`).join("")}</div></div>`;
 }
@@ -277,7 +278,7 @@ function vGuide() {
     const inner = `<span class="gico" aria-hidden="true">${ic}</span><span class="gtx"><b>${esc(name)}</b><span>${esc(desc)}</span></span>${go ? '<span class="gchip on">바로가기 ›</span>' : '<span class="gchip">준비 중</span>'}`;
     return go ? `<button class="gcard" data-act="${go[0]}" data-v="${go[1]}">${inner}</button>` : `<div class="gcard off">${inner}</div>`;
   };
-  return `<div class="stack">${subHead("더보기", "주요 기능 안내")}
+  return `<div class="stack">${topline()}<button class="back" data-act="tab" data-v="home">${IC.back} 홈</button><div class="pagehead"><span class="eyebrow">홈</span><h2>주요 기능 안내</h2></div>
     <section class="ghero"><div class="gemo" aria-hidden="true">🏃</div><h3>농소스포츠스쿨 주요 기능</h3><p class="gq">“움직이고, 기록하고, 성장하자!”</p>
       <p class="small muted" style="margin:0">농소스포츠스쿨은 학교 안팎에서 운동하고, 나의 활동을 기록하며 성장하는 스포츠 활동 공간입니다.</p></section>
     <div class="glist">${GUIDE.map(card).join("")}</div>
@@ -286,7 +287,6 @@ function vGuide() {
 }
 function vSub() {
   const k = S.sub;
-  if (k === "guide") return vGuide();
   if (k === "mission") return vMissions();
   if (k === "mrun") return vMissionRun();
   if (k === "pops") return vPops();
@@ -449,7 +449,7 @@ function render() {
   else if (S.view === "login") html = vLogin();
   else if (!S.home) html = `<div class="phone"><div class="card muted" style="margin-top:40px">불러오는 중이에요…</div></div>`;
   else {
-    const v = S.tab === "home" ? vHome() : S.tab === "check" ? vCheck() : S.tab === "my" ? vMy() : S.tab === "rank" ? vRank() : S.sub ? vSub() : vMore();
+    const v = S.tab === "home" ? (S.sub === "guide" ? vGuide() : vHome()) : S.tab === "check" ? vCheck() : S.tab === "my" ? vMy() : S.tab === "rank" ? vRank() : S.sub ? vSub() : vMore();
     html = `<div class="phone ${S.tab === "rank" && S.rankMode === "class" && S.home?.me?.grade ? "wide" : ""}">${v}</div>${tabsBar()}`;
   }
   $app.innerHTML = html;
@@ -519,6 +519,7 @@ document.addEventListener("click", async e => {
       if (v === "rank") { if (S.home.me.grade) loadRace(S.raceGrade).then(render).catch(() => {}); if (!S.rank) call("student_rank").then(r => { S.rank = r; render(); }).catch(() => {}); }
       if (v === "home" || v === "check") loadHome().then(render).catch(() => {});
       break;
+    case "guide": stopScan(); S.tab = "home"; S.sub = "guide"; render(); window.scrollTo(0, 0); break;
     case "pick": S.pick = v; S.tab = "check"; S.msg = null; S.done = null; render(); window.scrollTo(0, 0); break;
     case "pickstay": S.pick = v; S.msg = null; S.done = null; stopScan(); render(); break;
     case "scanstart": startScan(); break;
